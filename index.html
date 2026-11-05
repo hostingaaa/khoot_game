@@ -19,6 +19,14 @@
 }
 *{box-sizing:border-box}
 html,body{margin:0;height:100%}
+.kg-strip{height:22px;background-image:var(--shyrdak);background-size:44px 22px;background-repeat:repeat-x;flex:none}
+.tunduk{display:inline-block;line-height:0}
+.tunduk svg{width:100%;height:100%}
+.tunduk-bg{position:fixed;right:-90px;bottom:-90px;width:420px;height:420px;opacity:.07;pointer-events:none;z-index:0}
+.view > *:not(.tunduk-bg){position:relative;z-index:1}
+.kg-pill{display:inline-flex;align-items:center;gap:8px;background:rgba(255,216,77,.12);border:1px solid rgba(255,216,77,.35);color:#ffe79a;border-radius:999px;padding:6px 14px 6px 8px;font-weight:700}
+.kg-pill .tunduk{width:22px;height:22px}
+.kg-sub{font-family:var(--display);font-weight:700;opacity:.85;font-size:20px}
 body{background:var(--ink);color:var(--paper);font-family:var(--body);-webkit-font-smoothing:antialiased;
   background-image:radial-gradient(1200px 600px at 10% -10%,#3a2f9a 0,transparent 60%),radial-gradient(900px 500px at 110% 110%,#5a1f6e 0,transparent 55%);background-attachment:fixed}
 button,input,select,textarea{font:inherit;color:inherit}
@@ -89,6 +97,7 @@ h1,h2,h3{font-family:var(--display);margin:0;letter-spacing:-.01em}
 .av.bob{animation:bob 1.6s ease-in-out infinite}
 .av.sm{width:32px;height:32px}.av.md{width:56px;height:56px}.av.lg{width:96px;height:96px}.av.xl{width:132px;height:132px}
 @keyframes bob{0%,100%{transform:translateY(0) rotate(-4deg)}50%{transform:translateY(-4px) rotate(4deg)}}
+.chip .av{width:52px;height:52px}
 .av-pick{display:flex;flex-direction:column;align-items:center;gap:6px}
 .av-pick button.av{background:rgba(255,255,255,.1);border-radius:24px;padding:8px;width:132px;height:132px;transition:transform .15s}
 .av-pick button.av:active{transform:scale(.92) rotate(-6deg)}
@@ -161,8 +170,10 @@ h1,h2,h3{font-family:var(--display);margin:0;letter-spacing:-.01em}
 
 <!-- HOME -->
 <section id="v-home" class="view">
+  <div class="kg-strip"></div>
   <div class="wrap row"><div class="logo"><span class="dots"><i style="background:var(--c0)"></i><i style="background:var(--c1)"></i><i style="background:var(--c2)"></i><i style="background:var(--c3)"></i></span>Brightpin</div></div>
   <div class="center">
+    <span class="kg-pill"><span class="tunduk" data-tunduk></span>Кош келиңиз! · Welcome</span>
     <h1 class="hero">Live quizzes,<br>played on phones.</h1>
     <p class="muted" style="max-width:520px;margin:0">Write your questions, put the PIN and QR code on the big screen, and let everyone answer with a tap of color.</p>
     <div class="home-grid">
@@ -211,6 +222,8 @@ h1,h2,h3{font-family:var(--display);margin:0;letter-spacing:-.01em}
 
 <!-- LOBBY (host) -->
 <section id="v-lobby" class="view hidden">
+  <div class="kg-strip"></div>
+  <div class="tunduk tunduk-bg" data-tunduk></div>
   <div class="wrap row">
     <button class="icon-btn" id="lobby-end">✕ End game</button>
     <div class="spacer"></div>
@@ -270,6 +283,8 @@ h1,h2,h3{font-family:var(--display);margin:0;letter-spacing:-.01em}
 
 <!-- FINAL -->
 <section id="v-final" class="view hidden">
+  <div class="kg-strip"></div>
+  <div class="tunduk tunduk-bg" data-tunduk></div>
   <div class="center">
     <h1 style="font-size:48px" id="final-title"></h1>
     <div class="podium" id="podium"></div>
@@ -338,9 +353,52 @@ document.querySelectorAll("[data-go=home]").forEach(b => b.onclick = () => show(
 /* ---------- funny avatars (generated monsters) ---------- */
 // An avatar is [body, color, eyes, mouth, accessory] — five small numbers, cheap to send.
 const AV_BODY_COLORS = ["#ff6b6b","#4dabf7","#ffd43b","#51cf66","#cc5de8","#ff922b","#20c997","#f783ac","#94d82d","#748ffc"];
-const AV_COUNTS = [5, AV_BODY_COLORS.length, 6, 6, 8];
+const AV_COUNTS = [5, AV_BODY_COLORS.length, 6, 6, 11];
 const AV_INK = "#1d1640";
-function randomAvatar(){ return AV_COUNTS.map(n => Math.floor(Math.random() * n)); }
+// Kyrgyz headwear accessories (appended to the avatar accessory list)
+const KG_ACCS = col => [
+  // ak-kalpak: tall white felt hat, black upturned brim split at the front, tassel on top
+  `<path d="M29 32Q27 3 50 1Q73 3 71 32z" fill="#f8f4ea" stroke="${AV_INK}" stroke-width="2" stroke-linejoin="round"/>` +
+  `<path d="M50 6v9M50 15q-7 2-7 8M50 15q7 2 7 8M43 23q-2-4 1-6M57 23q2-4-1-6" fill="none" stroke="${AV_INK}" stroke-width="1.6" stroke-linecap="round"/>` +
+  `<path d="M22 36l5-14q12 1 21 7v7zM78 36l-5-14q-12 1-21 7v7z" fill="${AV_INK}" stroke="${AV_INK}" stroke-width="1.5" stroke-linejoin="round"/>` +
+  `<path d="M27 29q10-1 18 4M73 29q-10-1-18 4" fill="none" stroke="#f8f4ea" stroke-width="1.2" opacity=".7"/>` +
+  `<circle cx="50" cy="2" r="2.6" fill="#e03131"/>`,
+  // tebetei: rounded red velvet crown with a tall fur brim
+  `<path d="M32 22Q32 3 50 3Q68 3 68 22z" fill="#c92a2a" stroke="${AV_INK}" stroke-width="2"/>` +
+  `<path d="M50 3v19M41 5q-3 8-2 17M59 5q3 8 2 17" fill="none" stroke="#ffd43b" stroke-width="1.4" opacity=".85"/>` +
+  `<rect x="23" y="17" width="54" height="19" rx="9.5" fill="#8a5a2b" stroke="${AV_INK}" stroke-width="2"/>` +
+  `<path d="M29 22l2 9M35 21l2 11M41 21l2 11M47 21l2 11M53 21l2 11M59 21l2 11M65 21l2 11M71 22l1 8" stroke="#5e3b17" stroke-width="2" stroke-linecap="round"/>`,
+  // elechek: tall white wrapped headdress with an embroidered band
+  `<path d="M23 36Q20 6 50 4Q80 6 77 36Q50 28 23 36z" fill="#fbfaf5" stroke="${AV_INK}" stroke-width="2" stroke-linejoin="round"/>` +
+  `<path d="M26 26Q50 16 74 26M28 16Q50 7 72 16" fill="none" stroke="#c9c2ad" stroke-width="2"/>` +
+  `<path d="M24 33Q50 25 76 33" fill="none" stroke="#c92a2a" stroke-width="4"/>` +
+  `<path d="M34 30l3-3 3 3-3 3zM47 28l3-3 3 3-3 3zM60 30l3-3 3 3-3 3z" fill="#ffd43b"/>`
+];
+
+// Tunduk — the crown of the yurt, as on the Kyrgyz flag
+function tundukSVG(color = "#ffd43b"){
+  // two sets of three parallel bowed laths crossing inside the ring
+  return `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs><clipPath id="tdk"><circle cx="50" cy="50" r="40"/></clipPath></defs>` +
+    `<g fill="none" stroke="${color}" stroke-width="6"><g clip-path="url(#tdk)">` +
+    `<path d="M24 0Q40 50 24 100M44 0Q60 50 44 100M64 0Q80 50 64 100"/>` +
+    `<path d="M0 30Q50 46 100 30M0 50Q50 66 100 50M0 70Q50 86 100 70"/></g>` +
+    `<circle cx="50" cy="50" r="40" stroke-width="8"/></g></svg>`;
+}
+
+// Shyrdak border: repeating ram's-horn (kochkor muyuz) motif
+function shyrdakStrip(fg = "#ffd43b", bg = "#c92a2a"){
+  const tile = `<svg xmlns='http://www.w3.org/2000/svg' width='60' height='30' viewBox='0 0 60 30'><rect width='60' height='30' fill='${bg}'/>` +
+    `<path d='M30 26V16M30 16C30 8 22 5 17 8C12 11 14 18 19 18C23 18 23 13 20 12M30 16C30 8 38 5 43 8C48 11 46 18 41 18C37 18 37 13 40 12M0 26h60' fill='none' stroke='${fg}' stroke-width='3' stroke-linecap='round'/>` +
+    `<path d='M0 4l4 4-4 4M60 4l-4 4 4 4' fill='${fg}'/></svg>`;
+  return `url("data:image/svg+xml,${encodeURIComponent(tile)}")`;
+}
+
+function randomAvatar(){
+  const av = AV_COUNTS.map(n => Math.floor(Math.random() * n));
+  // Kyrgyz hats (ak-kalpak, tebetei, elechek) show up often
+  if (Math.random() < .4) av[4] = 8 + Math.floor(Math.random() * 3);
+  return av;
+}
 function cleanAvatar(av){
   if (!Array.isArray(av) || av.length !== 5) return randomAvatar();
   return av.map((v, i) => { v = Math.floor(+v); return Number.isFinite(v) ? ((v % AV_COUNTS[i]) + AV_COUNTS[i]) % AV_COUNTS[i] : 0; });
@@ -384,6 +442,7 @@ function avatarSVG(av){
     `<path d="M40 32 32 12M60 32l8-20" stroke="${col}" stroke-width="4" stroke-linecap="round"/><circle cx="32" cy="11" r="5" fill="#ffd43b" stroke="${AV_INK}" stroke-width="2"/><circle cx="68" cy="11" r="5" fill="#ffd43b" stroke="${AV_INK}" stroke-width="2"/>`, // antennae
     `<path d="M62 30l-12-8v16zM62 30l12-8v16z" fill="#f783ac" stroke="${AV_INK}" stroke-width="2" stroke-linejoin="round"/><circle cx="62" cy="30" r="4" fill="#ff6b6b" stroke="${AV_INK}" stroke-width="2"/>` // bow
   ];
+  accs.push(...KG_ACCS(col));
   const cheeks = m === 3 ? "" : `<circle cx="27" cy="66" r="5" fill="#ff8fab" opacity=".55"/><circle cx="73" cy="66" r="5" fill="#ff8fab" opacity=".55"/>`;
   return `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">${bodies[b]}${cheeks}${eyes[e]}${mouths[m]}${accs[a]}</svg>`;
 }
@@ -399,8 +458,31 @@ const SAMPLE = {
     { text: "Which is the largest ocean?", answers: ["Atlantic","Indian","Arctic","Pacific"], correct: 3, time: 20 }
   ]
 };
+
+const KG_QUIZ = {
+  id: "kg-quiz-v1", title: "Кыргызстан — Kyrgyzstan quiz",
+  questions: [
+    { text: "What is the capital of Kyrgyzstan?", answers: ["Osh","Bishkek","Karakol","Naryn"], correct: 1, time: 20 },
+    { text: "Who is the hero of the great Kyrgyz epic, one of the longest poems in the world?", answers: ["Manas","Alpamysh","Köroğlu","Gilgamesh"], correct: 0, time: 20 },
+    { text: "How many rays does the sun on the Kyrgyz flag have — one for each tribe?", answers: ["24","32","40","50"], correct: 2, time: 20 },
+    { text: "The yurt crown shown on the Kyrgyz flag is called the…", answers: ["Shyrdak","Tunduk","Kalpak","Chapan"], correct: 1, time: 20 },
+    { text: "What does the name of Lake Issyk-Kul mean?", answers: ["Blue lake","Salt lake","Warm lake","Deep lake"], correct: 2, time: 20 },
+    { text: "What is the highest mountain in Kyrgyzstan?", answers: ["Lenin Peak","Khan Tengri","Jengish Chokusu (Pobeda Peak)","Ala-Too"], correct: 2, time: 20 },
+    { text: "How many strings does a komuz have?", answers: ["2","3","4","6"], correct: 1, time: 10 },
+    { text: "Kok-boru is a traditional team game played…", answers: ["On horseback","On ice","In boats","On foot"], correct: 0, time: 10 },
+    { text: "Kymyz is a traditional drink made from fermented…", answers: ["Cow's milk","Honey","Mare's milk","Wheat"], correct: 2, time: 10 },
+    { text: "The ak-kalpak is a traditional Kyrgyz…", answers: ["Felt hat","Dance","Felt carpet","Bread"], correct: 0, time: 10 },
+    { text: "What is the national currency of Kyrgyzstan?", answers: ["Tenge","Som","Somoni","Ruble"], correct: 1, time: 10 },
+    { text: "In which year were the first World Nomad Games held at Issyk-Kul?", answers: ["2006","2010","2014","2018"], correct: 2, time: 20 },
+    { text: "Kyrgyzstan's Independence Day is celebrated on…", answers: ["31 August","9 May","21 March","1 January"], correct: 0, time: 20 }
+  ]
+};
 let quizzes = store.get("bp.quizzes", null);
-if (!Array.isArray(quizzes) || !quizzes.length) { quizzes = [SAMPLE]; store.set("bp.quizzes", quizzes); }
+if (Array.isArray(quizzes) && quizzes.length && !store.get("bp.kgSeeded", false) && !quizzes.some(q => q.id === KG_QUIZ.id)) {
+  quizzes.push(JSON.parse(JSON.stringify(KG_QUIZ))); store.set("bp.quizzes", quizzes);
+}
+store.set("bp.kgSeeded", true);
+if (!Array.isArray(quizzes) || !quizzes.length) { quizzes = [SAMPLE, JSON.parse(JSON.stringify(KG_QUIZ))]; store.set("bp.quizzes", quizzes); }
 let curId = store.get("bp.current", quizzes[0].id);
 if (!quizzes.find(q => q.id === curId)) curId = quizzes[0].id;
 const curQuiz = () => quizzes.find(q => q.id === curId);
@@ -805,7 +887,7 @@ function showFinal(){
   H.phase = "final";
   const r = rankList();
   for (const p of H.players.values()) hostSend(p.pid, finalMsg(p));
-  $("final-title").textContent = r.length ? "🏆 Winners" : "Game over";
+  $("final-title").textContent = r.length ? "🏆 Жеңүүчүлөр · Winners" : "Оюн бүттү · Game over";
   const order = [1, 0, 2];
   const heights = [200, 150, 110];
   const medal = ["var(--accent)", "#d9dbe6", "#e3a46b"];
@@ -935,7 +1017,7 @@ function playerMsg(m){
       P.joined = true; P.name = m.name; P.score = m.score; $("pj-err").textContent = ""; $("pj-go").disabled = false;
       $("pg-name").textContent = m.name; $("pg-av").innerHTML = avatarSVG(myAv); $("pg-score").textContent = m.score; banner("");
       show("v-pgame");
-      pBody(`<div class="result neutral">${avHTML(myAv, "xl bob")}<div class="big">You're in!</div><p style="font-size:18px;margin:0">See your nickname on the screen?</p><div class="spinner"></div><p class="muted" style="margin:0">Waiting for the host to start ${esc(m.title || "")}</p></div>`);
+      pBody(`<div class="result neutral">${avHTML(myAv, "xl bob")}<div class="kg-sub">Кош келиңиз!</div><div class="big">You're in!</div><p style="font-size:18px;margin:0">See your nickname on the screen?</p><div class="spinner"></div><p class="muted" style="margin:0">Waiting for the host to start ${esc(m.title || "")}</p></div>`);
       break;
     case "get-ready":
       banner(`${m.qi + 1} / ${m.total}`);
@@ -964,7 +1046,7 @@ function playerMsg(m){
     case "result": {
       P.score = m.score; $("pg-score").textContent = m.score;
       const cls = m.ok ? "good" : "bad";
-      const head = m.ok ? "Correct!" : (m.answered ? "Not quite" : "Time's up");
+      const head = m.ok ? "Туура! Correct!" : (m.answered ? "Туура эмес · Not quite" : "Убакыт бүттү · Time's up");
       pBody(`<div class="result ${cls}"><div class="big">${m.ok ? "✓ " : "✗ "}${head}</div>
         ${m.ok ? `<div class="pts">+${m.pts}</div>` : `<p style="margin:0;font-size:18px">Answer: <b>${esc(m.correctText)}</b></p>`}
         ${m.streak >= 2 ? `<p style="margin:0;font-weight:700">🔥 Answer streak: ${m.streak}</p>` : ""}
@@ -978,7 +1060,7 @@ function playerMsg(m){
     case "final": {
       P.score = m.score; $("pg-score").textContent = m.score; banner("Final");
       const medal = ["🥇", "🥈", "🥉"][m.rank - 1] || "🎉";
-      pBody(`<div class="result neutral">${avHTML(myAv, "lg bob")}<div style="font-size:56px;line-height:1">${medal}</div><div class="big">#${m.rank} of ${m.of}</div><div class="pts">${m.score} pts</div><p style="margin:0">${m.correct} of ${m.total} correct</p></div>`);
+      pBody(`<div class="result neutral">${avHTML(myAv, "lg bob")}<div style="font-size:56px;line-height:1">${medal}</div><div class="big">#${m.rank} of ${m.of}</div><div class="pts">${m.score} pts</div><p style="margin:0">${m.correct} of ${m.total} correct</p><div class="kg-sub">Рахмат! Thanks for playing</div></div>`);
       break;
     }
     case "kicked":
@@ -997,6 +1079,8 @@ function playerMsg(m){
 }
 
 /* ---------- boot ---------- */
+document.documentElement.style.setProperty("--shyrdak", shyrdakStrip());
+document.querySelectorAll("[data-tunduk]").forEach(el => el.innerHTML = tundukSVG());
 const urlPin = new URLSearchParams(location.search).get("pin");
 if (urlPin && /^\d{6}$/.test(urlPin)) openJoin(urlPin);
 else show("v-home");
