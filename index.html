@@ -99,7 +99,7 @@ h1,h2,h3{font-family:var(--display);margin:0;letter-spacing:-.01em}
 @keyframes bob{0%,100%{transform:translateY(0) rotate(-4deg)}50%{transform:translateY(-4px) rotate(4deg)}}
 .chip .av{width:52px;height:52px}
 .av-pick{display:flex;flex-direction:column;align-items:center;gap:6px}
-.av-pick button.av{background:rgba(255,255,255,.1);border-radius:24px;padding:8px;width:132px;height:132px;transition:transform .15s}
+.av-pick button.av{background:radial-gradient(circle at 50% 40%,rgba(255,255,255,.16),rgba(255,255,255,.04));border-radius:24px;padding:8px;width:132px;height:132px;transition:transform .15s}
 .av-pick button.av:active{transform:scale(.92) rotate(-6deg)}
 .sb-row .av{width:38px;height:38px;margin:-6px 0}
 .pod .av{display:block;margin:0 auto 4px}
@@ -299,10 +299,11 @@ h1,h2,h3{font-family:var(--display);margin:0;letter-spacing:-.01em}
 
 <!-- PLAYER: JOIN -->
 <section id="v-pjoin" class="view hidden">
+  <div class="kg-strip"></div>
   <div class="wrap row"><div class="logo"><span class="dots"><i style="background:var(--c0)"></i><i style="background:var(--c1)"></i><i style="background:var(--c2)"></i><i style="background:var(--c3)"></i></span>Brightpin</div></div>
   <div class="center">
     <div class="card" style="width:min(380px,100%);display:flex;flex-direction:column;gap:12px">
-      <div class="av-pick"><button class="av" id="pj-av" title="Tap for a new look" aria-label="Change avatar"></button><button class="icon-btn" id="pj-shuffle">🎲 Shuffle avatar</button></div>
+      <div class="av-pick"><button class="av" id="pj-av" title="Tap for a new look" aria-label="Change avatar"></button><div class="muted small" id="pj-avname" style="font-weight:700"></div><button class="icon-btn" id="pj-shuffle">🎲 Shuffle animal</button></div>
       <input id="pj-pin" class="field" inputmode="numeric" maxlength="6" placeholder="Game PIN" autocomplete="off" style="text-align:center">
       <input id="pj-name" class="field" maxlength="16" placeholder="Nickname" autocomplete="off" style="text-align:center">
       <button class="btn accent big" id="pj-go">Join</button>
@@ -350,29 +351,229 @@ function shapeEl(i){ return `<span class="sh">${SHAPES[i]}</span>`; }
 function baseUrl(){ return location.href.split("#")[0].split("?")[0]; }
 document.querySelectorAll("[data-go=home]").forEach(b => b.onclick = () => show("v-home"));
 
-/* ---------- funny avatars (generated monsters) ---------- */
-// An avatar is [body, color, eyes, mouth, accessory] — five small numbers, cheap to send.
-const AV_BODY_COLORS = ["#ff6b6b","#4dabf7","#ffd43b","#51cf66","#cc5de8","#ff922b","#20c997","#f783ac","#94d82d","#748ffc"];
-const AV_COUNTS = [5, AV_BODY_COLORS.length, 6, 6, 11];
-const AV_INK = "#1d1640";
-// Kyrgyz headwear accessories (appended to the avatar accessory list)
-const KG_ACCS = col => [
-  // ak-kalpak: tall white felt hat, black upturned brim split at the front, tassel on top
-  `<path d="M29 32Q27 3 50 1Q73 3 71 32z" fill="#f8f4ea" stroke="${AV_INK}" stroke-width="2" stroke-linejoin="round"/>` +
-  `<path d="M50 6v9M50 15q-7 2-7 8M50 15q7 2 7 8M43 23q-2-4 1-6M57 23q2-4-1-6" fill="none" stroke="${AV_INK}" stroke-width="1.6" stroke-linecap="round"/>` +
-  `<path d="M22 36l5-14q12 1 21 7v7zM78 36l-5-14q-12 1-21 7v7z" fill="${AV_INK}" stroke="${AV_INK}" stroke-width="1.5" stroke-linejoin="round"/>` +
-  `<path d="M27 29q10-1 18 4M73 29q-10-1-18 4" fill="none" stroke="#f8f4ea" stroke-width="1.2" opacity=".7"/>` +
-  `<circle cx="50" cy="2" r="2.6" fill="#e03131"/>`,
-  // tebetei: rounded red velvet crown with a tall fur brim
-  `<path d="M32 22Q32 3 50 3Q68 3 68 22z" fill="#c92a2a" stroke="${AV_INK}" stroke-width="2"/>` +
-  `<path d="M50 3v19M41 5q-3 8-2 17M59 5q3 8 2 17" fill="none" stroke="#ffd43b" stroke-width="1.4" opacity=".85"/>` +
-  `<rect x="23" y="17" width="54" height="19" rx="9.5" fill="#8a5a2b" stroke="${AV_INK}" stroke-width="2"/>` +
-  `<path d="M29 22l2 9M35 21l2 11M41 21l2 11M47 21l2 11M53 21l2 11M59 21l2 11M65 21l2 11M71 22l1 8" stroke="#5e3b17" stroke-width="2" stroke-linecap="round"/>`,
-  // elechek: tall white wrapped headdress with an embroidered band
-  `<path d="M23 36Q20 6 50 4Q80 6 77 36Q50 28 23 36z" fill="#fbfaf5" stroke="${AV_INK}" stroke-width="2" stroke-linejoin="round"/>` +
-  `<path d="M26 26Q50 16 74 26M28 16Q50 7 72 16" fill="none" stroke="#c9c2ad" stroke-width="2"/>` +
-  `<path d="M24 33Q50 25 76 33" fill="none" stroke="#c92a2a" stroke-width="4"/>` +
-  `<path d="M34 30l3-3 3 3-3 3zM47 28l3-3 3 3-3 3zM60 30l3-3 3 3-3 3z" fill="#ffd43b"/>`
+/* ---------- avatars: Kyrgyz animals ---------- */
+// An avatar is [animal, coat, 0, 0, hat] — five small numbers, cheap to send.
+const AV_ANIMALS = ["Snow leopard","Horse","Golden eagle","Yak","Marmot","Argali","Wolf","Ibex"];
+const AV_COUNTS = [AV_ANIMALS.length, 3, 1, 1, 4];
+let avSeq = 0;
+function randomAvatar(){
+  const av = AV_COUNTS.map(n => Math.floor(Math.random() * n));
+  av[4] = Math.random() < .45 ? 1 + Math.floor(Math.random() * 3) : 0; // about half wear a Kyrgyz hat
+  return av;
+}
+function cleanAvatar(av){
+  if (!Array.isArray(av) || av.length !== 5) return randomAvatar();
+  return av.map((v, i) => { v = Math.floor(+v); return Number.isFinite(v) ? ((v % AV_COUNTS[i]) + AV_COUNTS[i]) % AV_COUNTS[i] : 0; });
+}
+const avName = av => AV_ANIMALS[cleanAvatar(av)[0]];
+
+// gradient helpers (ids are unique per drawing so many avatars can share a page)
+const radial = (id, stops, cx = .5, cy = .45, r = .6) => `<radialGradient id="${id}" cx="${cx}" cy="${cy}" r="${r}">${stops.map(([o, c, op = 1]) => `<stop offset="${o}" stop-color="${c}" stop-opacity="${op}"/>`).join("")}</radialGradient>`;
+const linear = (id, stops, x2 = 0, y2 = 1) => `<linearGradient id="${id}" x1="0" y1="0" x2="${x2}" y2="${y2}">${stops.map(([o, c, op = 1]) => `<stop offset="${o}" stop-color="${c}" stop-opacity="${op}"/>`).join("")}</linearGradient>`;
+const mirror = d => `<g transform="translate(100 0) scale(-1 1)">${d}</g>`;
+const both = d => d + mirror(d);
+function rosette(x, y, r){
+  // 5 irregular blobs around a ring, with a gap — like a real snow leopard rosette
+  let o = "";
+  [[0,1],[70,.8],[140,1.1],[215,.9],[290,.7]].forEach(([a, sz]) => {
+    const t = a * Math.PI / 180;
+    o += `<ellipse cx="${(x + r * Math.cos(t)).toFixed(1)}" cy="${(y + r * Math.sin(t)).toFixed(1)}" rx="${(1.5 * sz).toFixed(1)}" ry="${(1.05 * sz).toFixed(1)}" transform="rotate(${a + 90} ${(x + r * Math.cos(t)).toFixed(1)} ${(y + r * Math.sin(t)).toFixed(1)})"/>`;
+  });
+  return o;
+}
+const catchlight = (x, y, r = 1.2) => `<circle cx="${x}" cy="${y}" r="${r}" fill="#fff" opacity=".9"/>`;
+
+const AV_DRAW = [
+  // 0 — snow leopard (ilbirs)
+  (u, k) => {
+    const P = [["#f7f3ec","#ddd5c7","#a39a8c"],["#f4ede0","#d8c9b0","#a08c6c"],["#eef0f0","#cfd3d4","#8e9497"]][k];
+    const spot = "#3d3834";
+    return { hat: [50, 30, .8], svg:
+      `<defs>${radial(u+"f", [[0,P[0]],[.55,P[1]],[1,P[2]]], .5, .42, .62)}${radial(u+"e", [[0,"#e3e8c4"],[.6,"#a9b67e"],[1,"#6c7a46"]])}${radial(u+"m", [[0,"#fffdf8"],[1,"#e7e0d3"]])}</defs>` +
+      both(`<path d="M17 38c-2-12 6-20 17-15l2 12z" fill="${P[2]}"/><path d="M21 36c0-7 5-11 11-8l1 8z" fill="#5c554d"/><path d="M23 35c1-4 4-6 8-4l0 5z" fill="${P[1]}"/>`) +
+      `<path d="M50 23c19 0 33 13 33 32 0 9-3 16-8 21l4 6-9-2c-5 4-12 7-20 7s-15-3-20-7l-9 2 4-6c-5-5-8-12-8-21 0-19 14-32 33-32z" fill="url(#${u}f)"/>` +
+      // rosettes (broken rings of dark spots) and small spots
+      `<g fill="${spot}" opacity=".78">` + both(rosette(26, 49, 4.2) + rosette(29, 64, 3.6) + rosette(35, 30, 3) + rosette(21, 58, 2.6)) + `</g>` +
+      `<g fill="${spot}" opacity=".8">` + both(`<circle cx="44" cy="31" r="1.5"/><circle cx="40" cy="36" r="1.2"/><circle cx="46" cy="38" r="1"/><circle cx="31" cy="40" r="1.4"/>`) + `<circle cx="50" cy="34" r="1.3"/></g>` +
+      // eyes
+      both(`<path d="M30 51c4-6 12-6 16-1-4 5-12 6-16 1z" fill="url(#${u}e)" stroke="#2b2622" stroke-width="1.6"/><ellipse cx="38.5" cy="50.6" rx="1.6" ry="3.3" fill="#141210"/>${catchlight(40, 49.3, 1)}<path d="M45 53c-1 4-2 7-1 11" stroke="#6b625a" stroke-width="1.3" fill="none" opacity=".7"/>`) +
+      // muzzle, nose, mouth
+      `<ellipse cx="43.5" cy="70" rx="8.5" ry="6.5" fill="url(#${u}m)"/><ellipse cx="56.5" cy="70" rx="8.5" ry="6.5" fill="url(#${u}m)"/>` +
+      `<path d="M50 52v10" stroke="${P[0]}" stroke-width="5" opacity=".6"/>` +
+      `<path d="M44.5 61.5h11c0 3-3 5.5-5.5 6.5-2.5-1-5.5-3.5-5.5-6.5z" fill="#b48f87"/><path d="M47 62.5h6" stroke="#fff" stroke-width="1" opacity=".5"/>` +
+      `<path d="M50 68v3.5m0 0c-2 3-5 3.5-7 2m7-2c2 3 5 3.5 7 2" stroke="#4a423b" stroke-width="1.4" fill="none" stroke-linecap="round"/>` +
+      both(`<g fill="#8f857a"><circle cx="40" cy="68" r=".7"/><circle cx="42" cy="71" r=".7"/><circle cx="38" cy="71" r=".7"/></g><path d="M36 70l-14-2M36 72l-13 3" stroke="#fff" stroke-width=".6" opacity=".8"/>`) +
+      `<ellipse cx="50" cy="80" rx="7" ry="4" fill="#f2ede4"/>`
+    };
+  },
+  // 1 — horse (at)
+  (u, k) => {
+    const P = [["#9a6438","#6e4224","#2a1a10"],["#c06a33","#8d4a20","#6a3416"],["#d9d6d1","#a9a49d","#5d5955"]][k];
+    return { hat: [50, 21, .58], svg:
+      `<defs>${linear(u+"c", [[0,P[0]],[1,P[1]]])}${radial(u+"s", [[0,"#fff",.25],[1,"#fff",0]], .5, .3, .5)}${radial(u+"n", [[0,k===2?"#8d8580":"#5a4034"],[1,k===2?"#4d4642":"#2b1d16"]])}</defs>` +
+      both(`<path d="M33 25 27 3c6 2 11 8 13 15z" fill="${P[1]}"/><path d="M33 21 29 7c4 2 7 6 8 11z" fill="#2a1c13" opacity=".8"/>`) +
+      `<path d="M30 22c3-7 37-7 40 0 5 18-1 38-6 54-3 11-25 11-28 0-5-16-11-36-6-54z" fill="url(#${u}c)"/>` +
+      `<path d="M30 22c3-7 37-7 40 0 5 18-1 38-6 54-3 11-25 11-28 0-5-16-11-36-6-54z" fill="url(#${u}s)"/>` +
+      // cheek shading
+      both(`<path d="M31 32c-2 12 2 26 7 38 1-12-1-26-7-38z" fill="#000" opacity=".14"/>`) +
+      // blaze / star
+      (k === 2 ? `<path d="M47 30l3-4 3 4-3 5z" fill="#fff" opacity=".9"/>` : `<path d="M47 22c2-2 4-2 6 0l1 40c-2 4-6 4-8 0z" fill="#f4efe6"/>`) +
+      // forelock
+      `<path d="M39 13c5-5 17-5 22 0-2 6-4 12-7 20-1-6-2-9-4-11-1 4-3 8-6 11 0-8-2-14-5-20z" fill="${P[2]}"/>` +
+      // eyes
+      both(`<ellipse cx="32.5" cy="43" rx="4.4" ry="3.4" fill="#1a110c" transform="rotate(-20 32.5 43)"/>${catchlight(33.5, 41.8, 1.1)}<path d="M28 39q5-3 9 1" stroke="${P[1]}" stroke-width="1.4" fill="none"/>`) +
+      // muzzle
+      `<ellipse cx="50" cy="80" rx="14.5" ry="10.5" fill="url(#${u}n)"/>` +
+      both(`<path d="M42 79c-2 2-2 6 0 8 2-1 3-6 0-8z" fill="#120c09"/>`) +
+      `<path d="M44 89q6 2 12 0" stroke="#120c09" stroke-width="1.2" fill="none" opacity=".7"/>`
+    };
+  },
+  // 2 — golden eagle (burkut)
+  (u, k) => {
+    const P = [["#6b4a2a","#3d2a17","#d6a24a"],["#8a6337","#4f3820","#e3b45a"],["#5a4b3c","#2f261d","#c9a46a"]][k];
+    return { hat: [50, 25, .7], svg:
+      `<defs>${radial(u+"h", [[0,P[0]],[1,P[1]]], .5, .55, .6)}${radial(u+"g", [[0,P[2]],[1,P[2],0]], .5, .2, .55)}${radial(u+"i", [[0,"#f0b545"],[.7,"#b8731c"],[1,"#7a4510"]])}${linear(u+"b", [[0,"#6d7178"],[1,"#202226"]])}</defs>` +
+      `<path d="M50 20c20 0 31 14 31 31 0 12-5 22-13 28l3 10-9-5c-4 2-8 3-12 3s-8-1-12-3l-9 5 3-10c-8-6-13-16-13-28 0-17 11-31 31-31z" fill="url(#${u}h)"/>` +
+      `<path d="M50 20c20 0 31 14 31 31 0 4-1 7-2 10-8-14-18-20-29-20s-21 6-29 20c-1-3-2-6-2-10 0-17 11-31 31-31z" fill="url(#${u}g)"/>` +
+      // feather texture
+      `<g fill="none" stroke="#1d140b" stroke-width=".9" opacity=".35">` + both(`<path d="M28 60l4 3 3-4M24 50l4 3 3-4M31 70l4 3 3-4M36 30l3 3 3-3M30 38l3 3 3-3M38 78l3 3 3-3"/>`) + `</g>` +
+      // brow ridge and eyes
+      both(`<circle cx="35" cy="47" r="6" fill="url(#${u}i)"/><circle cx="35" cy="47" r="3" fill="#0d0905"/>${catchlight(36.6, 45.4, 1.3)}<path d="M26 43c5-5 13-6 19-2-5-1-12 0-19 4z" fill="#1d140b"/>`) +
+      // cere and beak
+      `<path d="M41 52c5-3 13-3 18 0l-2 7c-4-2-10-2-14 0z" fill="#f2c84b"/>` +
+      `<path d="M43 58c4-2 10-2 14 0 1 9-2 17-7 24-2-1-3-3-3-5 2-1 3-2 3-4-3-4-6-9-7-15z" fill="url(#${u}b)"/>` +
+      `<path d="M46 60c2-1 6-1 8 0" stroke="#fff" stroke-width=".8" opacity=".35" fill="none"/>` +
+      both(`<ellipse cx="46" cy="56" rx="1.2" ry=".8" fill="#5b3d10"/>`)
+    };
+  },
+  // 3 — yak (topoz)
+  (u, k) => {
+    const P = [["#3a312c","#16120f","#5d5550"],["#6b4a33","#3a2617","#8a7262"],["#f1ece4","#bdb4a8","#9a9087"]][k];
+    return { hat: [50, 22, .62], svg:
+      `<defs>${radial(u+"f", [[0,P[0]],[1,P[1]]], .5, .4, .62)}${linear(u+"h", [[0,"#f4efe2"],[.6,"#c7bea8"],[1,"#6e675b"]], 1, 0)}</defs>` +
+      both(`<path d="M33 27C17 29 7 21 8 6c4 9 12 13 25 13z" fill="url(#${u}h)"/>`) +
+      both(`<path d="M27 38c-8-2-14 0-17 4 5 3 11 3 17 1z" fill="${P[1]}"/>`) +
+      `<path d="M30 20c13-6 27-6 40 0 8 12 9 30 4 44-3 10-8 20-14 25-7 4-13 4-20 0-6-5-11-15-14-25-5-14-4-32 4-44z" fill="url(#${u}f)"/>` +
+      // shaggy fringe
+      `<path d="M28 26c7-8 37-8 44 0l-3 22-3-8-3 12-4-11-3 13-3-12-3 13-3-13-3 12-4-11-2 9-3-14z" fill="${P[1]}" opacity=".9"/>` +
+      `<g stroke="${P[2]}" stroke-width=".9" opacity=".5" fill="none">` + both(`<path d="M33 30l2 12M38 28l2 15M44 27l1 14"/>`) + `</g>` +
+      // eyes peeking under fringe
+      both(`<ellipse cx="36" cy="51" rx="3.4" ry="2.8" fill="#0c0807"/>${catchlight(37, 50, .9)}`) +
+      // muzzle
+      `<ellipse cx="50" cy="77" rx="15" ry="11" fill="${k===2?"#d8c6bd":"#5c524c"}"/>` +
+      `<ellipse cx="50" cy="75" rx="11" ry="6" fill="#fff" opacity="${k===2?.25:.08}"/>` +
+      both(`<path d="M41 75c-3 1-3 5 0 6 2-1 3-4 0-6z" fill="#120d0b"/>`) +
+      `<path d="M38 86c4 8 20 8 24 0l-3 9-3-5-3 6-3-6-3 6-3-5z" fill="${P[1]}"/>`
+    };
+  },
+  // 4 — marmot (suur)
+  (u, k) => {
+    const P = [["#ecc06c","#b07a33","#6b4a25"],["#c9ab86","#8a6d4f","#4f3d2d"],["#e3a463","#a5612d","#5a3418"]][k];
+    return { hat: [50, 30, .82], svg:
+      `<defs>${radial(u+"f", [[0,P[0]],[1,P[1]]], .5, .55, .62)}${radial(u+"c", [[0,"#fbeccc"],[1,"#fbeccc",0]])}</defs>` +
+      both(`<circle cx="24" cy="36" r="7" fill="${P[1]}"/><circle cx="24.5" cy="36.5" r="4" fill="${P[2]}"/>`) +
+      `<path d="M50 25c19 0 32 13 32 31 0 18-14 32-32 32S18 74 18 56c0-18 13-31 32-31z" fill="url(#${u}f)"/>` +
+      // dark cap
+      `<path d="M21 47c2-14 14-22 29-22s27 8 29 22c-8-6-18-9-29-9s-21 3-29 9z" fill="${P[2]}" opacity=".75"/>` +
+      // fur texture
+      `<g stroke="${P[2]}" stroke-width=".8" opacity=".35" fill="none">` + both(`<path d="M24 60l3 2M22 66l3 1M26 72l3 1M29 54l3 2"/>`) + `</g>` +
+      // cheeks
+      both(`<ellipse cx="37" cy="67" rx="12" ry="10" fill="url(#${u}c)"/>`) +
+      // eyes
+      both(`<ellipse cx="38" cy="50" rx="5" ry="5.3" fill="#fbeccc" opacity=".55"/><circle cx="38" cy="50" r="3.9" fill="#0d0907"/>${catchlight(39.3, 48.7, 1.3)}`) +
+      // nose, mouth, orange incisors
+      `<path d="M45.5 60.5c3-2 6-2 9 0-1 2.5-3 4-4.5 4s-3.5-1.5-4.5-4z" fill="#3a2614"/>` +
+      `<path d="M50 64.5v2.5m0 0c-2 2-4 2-6 1m6-1c2 2 4 2 6 1" stroke="#3a2614" stroke-width="1.2" fill="none" stroke-linecap="round"/>` +
+      `<path d="M46.5 69h7v6.5c0 .8-.6 1.5-1.4 1.5h-4.2c-.8 0-1.4-.7-1.4-1.5z" fill="#f0b14a" stroke="#8a5a1d" stroke-width=".6"/><path d="M50 69v8" stroke="#8a5a1d" stroke-width=".6"/>` +
+      both(`<path d="M42 64l-17-3M42 66l-16 2" stroke="#2c1d10" stroke-width=".5" opacity=".6"/>`)
+    };
+  },
+  // 5 — argali (arkar, Marco Polo sheep)
+  (u, k) => {
+    const P = [["#a8865c","#6f5233"],["#b89772","#7d6347"],["#8f7a66","#5a4a3c"]][k];
+    const horn = `M38 24C26 12 6 16 6 36c0 16 16 20 22 10 4-7-1-14-7-11-4 2-3 7 0 7`;
+    return { hat: [50, 22, .56], svg:
+      `<defs>${linear(u+"f", [[0,P[0]],[1,P[1]]])}${linear(u+"h", [[0,"#e2d3b2"],[1,"#9a8460"]])}${radial(u+"e", [[0,"#e9c46a"],[1,"#a7741d"]])}</defs>` +
+      both(`<path d="${horn}" fill="none" stroke="url(#${u}h)" stroke-width="10" stroke-linecap="round"/><path d="${horn}" fill="none" stroke="#6b5a3c" stroke-width="10" stroke-dasharray=".8 2.6" opacity=".45"/>`) +
+      both(`<path d="M35 50c-6 0-10 2-12 5 4 1 9 1 12-1z" fill="${P[1]}"/>`) +
+      `<path d="M37 24c8-4 18-4 26 0 4 18 2 34-4 50-3 9-15 9-18 0-6-16-8-32-4-50z" fill="url(#${u}f)"/>` +
+      `<path d="M40 64c4-3 16-3 20 0-1 12-4 22-10 24-6-2-9-12-10-24z" fill="#f1ebe1"/>` +
+      `<path d="M47 26h6l-1 34h-4z" fill="#000" opacity=".1"/>` +
+      both(`<ellipse cx="39" cy="45" rx="4" ry="3.2" fill="url(#${u}e)"/><rect x="36.4" y="44.2" width="5.2" height="1.6" rx=".8" fill="#120d08"/>${catchlight(40, 43.8, .8)}`) +
+      both(`<path d="M47 79c-2 0-3 2-2 4 1 0 2-2 2-4z" fill="#3a2d22"/>`) +
+      `<path d="M47 86q3 1.5 6 0" stroke="#3a2d22" stroke-width="1" fill="none"/>`
+    };
+  },
+  // 6 — grey wolf (börü)
+  (u, k) => {
+    const P = [["#b9b3ab","#6b655f","#3d3935"],["#c8b293","#80684c","#4a3a28"],["#d9d7d3","#9c9893","#5a5754"]][k];
+    return { hat: [50, 25, .7], svg:
+      `<defs>${radial(u+"f", [[0,P[0]],[1,P[1]]], .5, .45, .62)}${radial(u+"e", [[0,"#f6cf5c"],[.7,"#c98a1f"],[1,"#7a4f10"]])}</defs>` +
+      both(`<path d="M25 38 22 6l21 20z" fill="${P[1]}"/><path d="M27 32 25 13l12 13z" fill="#ece4d6"/>`) +
+      `<path d="M50 22c16 0 28 6 31 18 3 14-2 26-11 35-6 7-13 15-20 17-7-2-14-10-20-17-9-9-14-21-11-35 3-12 15-18 31-18z" fill="url(#${u}f)"/>` +
+      // pale mask
+      `<path d="M27 55c7 6 13 8 19 5l4 7 4-7c6 3 12 1 19-5-1 11-6 20-13 27-4 4-7 8-10 10-3-2-6-6-10-10-7-7-12-16-13-27z" fill="#efe9df"/>` +
+      // dark saddle down the nose
+      `<path d="M39 24c7-3 15-3 22 0l-6 36c-3 3-7 3-10 0z" fill="${P[2]}" opacity=".45"/>` +
+      `<g stroke="${P[2]}" stroke-width=".9" opacity=".4" fill="none">` + both(`<path d="M22 46l5 2M21 52l5 1M24 40l5 3"/>`) + `</g>` +
+      both(`<path d="M30 48c4-5 11-6 16-2-4 5-12 6-16 2z" fill="url(#${u}e)" stroke="#1d1a17" stroke-width="1.5"/><circle cx="38.2" cy="47.6" r="2" fill="#0d0b09"/>${catchlight(39.4, 46.6, .9)}`) +
+      `<path d="M43 69c4-3 10-3 14 0-1 5-4 7-7 7s-6-2-7-7z" fill="#1c1a19"/><path d="M46 69.5q4-1.5 8 0" stroke="#fff" stroke-width=".9" opacity=".45" fill="none"/>` +
+      `<path d="M50 76v4m0 0c-2 2-5 2-7 1m7-1c2 2 5 2 7 1" stroke="#2a2725" stroke-width="1.3" fill="none" stroke-linecap="round"/>`
+    };
+  },
+  // 7 — Siberian ibex (teke)
+  (u, k) => {
+    const P = [["#9b7650","#5f452a","#2f2216"],["#b08a5e","#71563a","#3a2b1c"],["#8a7d6c","#544a3e","#2b251f"]][k];
+    const horn = `M43 27C40 12 34 4 22 1`;
+    return { hat: [50, 25, .58], svg:
+      `<defs>${linear(u+"f", [[0,P[0]],[1,P[1]]])}${linear(u+"h", [[0,"#4a4035"],[1,"#8c7d68"]])}${radial(u+"e", [[0,"#e6c06a"],[1,"#9a6a1c"]])}</defs>` +
+      both(`<path d="${horn}" fill="none" stroke="url(#${u}h)" stroke-width="11" stroke-linecap="round"/><path d="${horn}" fill="none" stroke="#2b241c" stroke-width="11" stroke-dasharray="1.2 3.2" opacity=".55"/>`) +
+      both(`<path d="M35 38c-7-3-13-2-17 2 5 3 11 3 17 1z" fill="${P[1]}"/><path d="M33 38.5c-5-1.5-9-1-12 1.5 4 1 8 1 12 0z" fill="#d9c7a8" opacity=".6"/>`) +
+      `<path d="M34 26c10-6 22-6 32 0 3 18-1 34-6 48-2 7-18 7-20 0-5-14-9-30-6-48z" fill="url(#${u}f)"/>` +
+      `<path d="M45 26h10l-2 40h-6z" fill="${P[2]}" opacity=".4"/>` +
+      both(`<ellipse cx="38" cy="44" rx="3.9" ry="3.1" fill="url(#${u}e)"/><rect x="35.5" y="43.3" width="5" height="1.5" rx=".7" fill="#120d08"/>${catchlight(38.9, 42.9, .8)}`) +
+      `<path d="M41 65c5-2 13-2 18 0-1 8-4 11-9 12-5-1-8-4-9-12z" fill="#d8c8b0"/>` +
+      both(`<path d="M47.5 70c-1.5 0-2.5 1.5-1.5 3 1 0 1.5-1.5 1.5-3z" fill="#2b2016"/>`) +
+      `<path d="M44 76c2 10 4 18 6 22 2-4 4-12 6-22-4 2-8 2-12 0z" fill="${P[2]}"/>`
+    };
+  }
+];
+
+function avatarSVG(av){
+  const [a, k, , , h] = cleanAvatar(av);
+  const u = "av" + (++avSeq) + "_";
+  const d = AV_DRAW[a](u, k);
+  let hat = "";
+  if (h > 0) {
+    const [x, y, s] = d.hat;
+    hat = `<g transform="translate(${(x - 50 * s).toFixed(2)} ${(y - 36 * s).toFixed(2)}) scale(${s})">${KG_HATS(u)[h - 1]}</g>`;
+  }
+  return `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${AV_ANIMALS[a]}">${d.svg}${hat}</svg>`;
+}
+const avHTML = (av, cls = "") => `<span class="av ${cls}">${avatarSVG(av)}</span>`;
+
+// Kyrgyz headwear, drawn with soft shading to match the animals (hat brim sits at y = 36)
+const KG_HATS = u => [
+  // ak-kalpak: tall white felt hat, black upturned brim split at the front
+  `<defs>${linear(u+"ak", [[0,"#ffffff"],[1,"#d9d2c2"]], 1, .4)}</defs>` +
+  `<path d="M29 32Q27 3 50 1Q73 3 71 32z" fill="url(#${u}ak)" stroke="#8d8676" stroke-width=".8"/>` +
+  `<path d="M50 6v9M50 15q-7 2-7 8M50 15q7 2 7 8M43 23q-2-4 1-6M57 23q2-4-1-6" fill="none" stroke="#1d1a17" stroke-width="1.4" stroke-linecap="round"/>` +
+  `<path d="M22 36l5-14q12 1 21 7v7zM78 36l-5-14q-12 1-21 7v7z" fill="#171513"/>` +
+  `<path d="M27 25q10 1 19 6M73 25q-10 1-19 6" fill="none" stroke="#fff" stroke-width=".8" opacity=".35"/>` +
+  `<circle cx="50" cy="2" r="2.4" fill="#c92a2a"/>`,
+  // tebetei: red velvet crown with a thick fur brim
+  `<defs>${radial(u+"tb", [[0,"#e03b3b"],[1,"#8a1414"]], .4, .3, .7)}${linear(u+"fr", [[0,"#a8743f"],[1,"#5e3b17"]])}</defs>` +
+  `<path d="M32 22Q32 3 50 3Q68 3 68 22z" fill="url(#${u}tb)"/>` +
+  `<path d="M50 3v19M41 5q-3 8-2 17M59 5q3 8 2 17" fill="none" stroke="#f2c84b" stroke-width="1.2" opacity=".85"/>` +
+  `<rect x="23" y="17" width="54" height="19" rx="9.5" fill="url(#${u}fr)"/>` +
+  `<path d="M28 22l2 9M33 20l2 12M38 20l2 12M43 20l2 12M48 20l2 12M53 20l2 12M58 20l2 12M63 20l2 12M68 21l2 10" stroke="#3e2610" stroke-width="1.4" stroke-linecap="round" opacity=".7"/>` +
+  `<path d="M30 20l1 6M40 19l1 7M50 19l1 7M60 19l1 7" stroke="#d6a76c" stroke-width="1" opacity=".6"/>`,
+  // elechek: white wrapped headdress with an embroidered band
+  `<defs>${linear(u+"el", [[0,"#ffffff"],[1,"#ddd6c6"]], 1, .5)}</defs>` +
+  `<path d="M23 36Q20 6 50 4Q80 6 77 36Q50 28 23 36z" fill="url(#${u}el)" stroke="#9c9583" stroke-width=".8"/>` +
+  `<path d="M26 26Q50 16 74 26M28 16Q50 7 72 16" fill="none" stroke="#b9b19c" stroke-width="1.6"/>` +
+  `<path d="M24 33Q50 25 76 33" fill="none" stroke="#b02525" stroke-width="4"/>` +
+  `<path d="M34 30l3-3 3 3-3 3zM47 28l3-3 3 3-3 3zM60 30l3-3 3 3-3 3z" fill="#f2c84b"/>`
 ];
 
 // Tunduk — the crown of the yurt, as on the Kyrgyz flag
@@ -393,60 +594,6 @@ function shyrdakStrip(fg = "#ffd43b", bg = "#c92a2a"){
   return `url("data:image/svg+xml,${encodeURIComponent(tile)}")`;
 }
 
-function randomAvatar(){
-  const av = AV_COUNTS.map(n => Math.floor(Math.random() * n));
-  // Kyrgyz hats (ak-kalpak, tebetei, elechek) show up often
-  if (Math.random() < .4) av[4] = 8 + Math.floor(Math.random() * 3);
-  return av;
-}
-function cleanAvatar(av){
-  if (!Array.isArray(av) || av.length !== 5) return randomAvatar();
-  return av.map((v, i) => { v = Math.floor(+v); return Number.isFinite(v) ? ((v % AV_COUNTS[i]) + AV_COUNTS[i]) % AV_COUNTS[i] : 0; });
-}
-function avatarSVG(av){
-  const [b, c, e, m, a] = cleanAvatar(av);
-  const col = AV_BODY_COLORS[c];
-  const shade = "rgba(0,0,0,.12)";
-  const bodies = [
-    `<circle cx="50" cy="60" r="33" fill="${col}"/><ellipse cx="50" cy="86" rx="20" ry="5" fill="${shade}"/>`,
-    `<rect x="17" y="28" width="66" height="64" rx="18" fill="${col}"/>`,
-    `<ellipse cx="50" cy="62" rx="29" ry="34" fill="${col}"/>`,
-    `<path d="M18 92V58a32 32 0 0 1 64 0v34l-8-7-8 7-8-7-8 7-8-7-8 7-8-7z" fill="${col}"/>`,
-    `<path d="M14 92Q14 28 50 28Q86 28 86 92Z" fill="${col}"/>`
-  ];
-  const eye = (x, y, r, px = 0, py = 0) => `<circle cx="${x}" cy="${y}" r="${r}" fill="#fff" stroke="${AV_INK}" stroke-width="2"/><circle cx="${x + px}" cy="${y + py}" r="${r * .45}" fill="${AV_INK}"/>`;
-  const eyes = [
-    eye(38, 52, 10, 3, 2) + eye(62, 52, 10, -2, 3),                       // googly
-    eye(50, 51, 15, 0, 2),                                                // cyclops
-    eye(32, 51, 7, 1, 1) + eye(50, 46, 8, 0, 2) + eye(68, 51, 7, -1, 1),  // three eyes
-    eye(38, 52, 9, 0, 2) + eye(62, 52, 9, 0, 2) +                         // sleepy (droopy lids)
-      `<path d="M28 52a10 10 0 0 1 20 0z M52 52a10 10 0 0 1 20 0z" fill="${col}" stroke="${AV_INK}" stroke-width="2"/>`,
-    eye(38, 52, 10, 4, 0) + eye(62, 52, 10, -4, 0),                       // cross-eyed
-    eye(38, 52, 10, 2, 1) + `<path d="M54 53q8-8 16 0" fill="none" stroke="${AV_INK}" stroke-width="3" stroke-linecap="round"/>` // wink
-  ];
-  const mouths = [
-    `<path d="M36 69q14 16 28 0z" fill="${AV_INK}"/>`,                                                  // grin
-    `<path d="M36 69q14 14 28 0z" fill="${AV_INK}"/><path d="M45 74q5 12 10 0z" fill="#ff8fab"/>`,      // tongue out
-    `<path d="M36 70h28" stroke="${AV_INK}" stroke-width="3" stroke-linecap="round"/><path d="M40 70l3 7 3-7zM54 70l3 7 3-7z" fill="#fff" stroke="${AV_INK}" stroke-width="1.5"/>`, // fangs
-    `<ellipse cx="50" cy="73" rx="6" ry="7" fill="${AV_INK}"/>`,                                        // "oh!"
-    `<path d="M36 72q4-5 7 0t7 0 7 0 7 0" fill="none" stroke="${AV_INK}" stroke-width="3" stroke-linecap="round"/>`, // wobbly
-    `<path d="M40 68q10 9 20 0" fill="none" stroke="${AV_INK}" stroke-width="3" stroke-linecap="round"/><rect x="45" y="70" width="5" height="7" rx="1" fill="#fff" stroke="${AV_INK}" stroke-width="1.5"/><rect x="50" y="70" width="5" height="7" rx="1" fill="#fff" stroke="${AV_INK}" stroke-width="1.5"/>` // buck teeth
-  ];
-  const accs = [
-    ``,
-    `<path d="M38 32 50 4l12 28z" fill="#ffd43b" stroke="${AV_INK}" stroke-width="2"/><path d="M42 24h16M45 16h10" stroke="#ff6b6b" stroke-width="3"/><circle cx="50" cy="5" r="4" fill="#ff6b6b"/>`, // party hat
-    `<rect x="25" y="44" width="22" height="14" rx="5" fill="${AV_INK}"/><rect x="53" y="44" width="22" height="14" rx="5" fill="${AV_INK}"/><path d="M47 49h6M25 48l-8-3M75 48l8-3" stroke="${AV_INK}" stroke-width="3"/><path d="M29 47l6 0" stroke="#fff" stroke-width="2" opacity=".6"/>`, // sunglasses
-    `<path d="M32 32l-3-18 11 9 10-14 10 14 11-9-3 18z" fill="#ffd43b" stroke="${AV_INK}" stroke-width="2" stroke-linejoin="round"/><circle cx="50" cy="25" r="3" fill="#ff6b6b"/>`, // crown
-    `<path d="M30 32a20 16 0 0 1 40 0z" fill="#4dabf7" stroke="${AV_INK}" stroke-width="2"/><path d="M50 16v-6" stroke="#ffd43b" stroke-width="3"/><path d="M38 9q12-6 24 0q-12 4-24 0z" fill="#ff6b6b" stroke="${AV_INK}" stroke-width="1.5"/>`, // propeller cap
-    `<path d="M50 63q-8-6-16 2q8 2 16-2q8 4 16 2q-8-8-16-2z" fill="${AV_INK}"/>`, // mustache
-    `<path d="M40 32 32 12M60 32l8-20" stroke="${col}" stroke-width="4" stroke-linecap="round"/><circle cx="32" cy="11" r="5" fill="#ffd43b" stroke="${AV_INK}" stroke-width="2"/><circle cx="68" cy="11" r="5" fill="#ffd43b" stroke="${AV_INK}" stroke-width="2"/>`, // antennae
-    `<path d="M62 30l-12-8v16zM62 30l12-8v16z" fill="#f783ac" stroke="${AV_INK}" stroke-width="2" stroke-linejoin="round"/><circle cx="62" cy="30" r="4" fill="#ff6b6b" stroke="${AV_INK}" stroke-width="2"/>` // bow
-  ];
-  accs.push(...KG_ACCS(col));
-  const cheeks = m === 3 ? "" : `<circle cx="27" cy="66" r="5" fill="#ff8fab" opacity=".55"/><circle cx="73" cy="66" r="5" fill="#ff8fab" opacity=".55"/>`;
-  return `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">${bodies[b]}${cheeks}${eyes[e]}${mouths[m]}${accs[a]}</svg>`;
-}
-const avHTML = (av, cls = "") => `<span class="av ${cls}">${avatarSVG(av)}</span>`;
 
 /* ---------- quiz storage ---------- */
 const SAMPLE = {
@@ -932,8 +1079,8 @@ function openJoin(pin){
 $("home-join").onclick = () => openJoin($("home-pin").value.replace(/\D/g, ""));
 $("home-pin").onkeydown = e => { if (e.key === "Enter") $("home-join").click(); };
 let myAv = cleanAvatar(store.get("bp.avatar", null) || randomAvatar());
-function renderMyAvatar(){ $("pj-av").innerHTML = avatarSVG(myAv); store.set("bp.avatar", myAv); }
-$("pj-av").onclick = $("pj-shuffle").onclick = () => { myAv = randomAvatar(); renderMyAvatar(); navigator.vibrate?.(15); };
+function renderMyAvatar(){ $("pj-av").innerHTML = avatarSVG(myAv); $("pj-avname").textContent = avName(myAv); store.set("bp.avatar", myAv); }
+$("pj-av").onclick = $("pj-shuffle").onclick = () => { const old = myAv[0]; do { myAv = randomAvatar(); } while (myAv[0] === old); renderMyAvatar(); navigator.vibrate?.(15); };
 $("pj-name").onkeydown = e => { if (e.key === "Enter") $("pj-go").click(); };
 $("pj-pin").onkeydown = e => { if (e.key === "Enter") $("pj-name").focus(); };
 
