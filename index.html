@@ -83,6 +83,18 @@ h1,h2,h3{font-family:var(--display);margin:0;letter-spacing:-.01em}
 .players{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px;justify-content:center}
 .chip{background:rgba(255,255,255,.12);border:1px solid var(--line);padding:10px 16px;border-radius:999px;font-weight:700;font-size:18px;animation:pop .3s ease-out;cursor:pointer}
 .chip:hover{background:rgba(229,72,77,.35);text-decoration:line-through}
+.chip{display:inline-flex;align-items:center;gap:8px;padding:6px 16px 6px 6px}
+.av{display:inline-block;width:40px;height:40px;flex:none;line-height:0}
+.av svg{width:100%;height:100%;display:block}
+.av.bob{animation:bob 1.6s ease-in-out infinite}
+.av.sm{width:32px;height:32px}.av.md{width:56px;height:56px}.av.lg{width:96px;height:96px}.av.xl{width:132px;height:132px}
+@keyframes bob{0%,100%{transform:translateY(0) rotate(-4deg)}50%{transform:translateY(-4px) rotate(4deg)}}
+.av-pick{display:flex;flex-direction:column;align-items:center;gap:6px}
+.av-pick button.av{background:rgba(255,255,255,.1);border-radius:24px;padding:8px;width:132px;height:132px;transition:transform .15s}
+.av-pick button.av:active{transform:scale(.92) rotate(-6deg)}
+.sb-row .av{width:38px;height:38px;margin:-6px 0}
+.pod .av{display:block;margin:0 auto 4px}
+.pl-bar .who{display:flex;align-items:center;gap:8px}
 @keyframes pop{from{transform:scale(.6);opacity:0}to{transform:scale(1);opacity:1}}
 @media (max-width:800px){.lobby{grid-template-columns:1fr;justify-items:center}}
 
@@ -275,6 +287,7 @@ h1,h2,h3{font-family:var(--display);margin:0;letter-spacing:-.01em}
   <div class="wrap row"><div class="logo"><span class="dots"><i style="background:var(--c0)"></i><i style="background:var(--c1)"></i><i style="background:var(--c2)"></i><i style="background:var(--c3)"></i></span>Brightpin</div></div>
   <div class="center">
     <div class="card" style="width:min(380px,100%);display:flex;flex-direction:column;gap:12px">
+      <div class="av-pick"><button class="av" id="pj-av" title="Tap for a new look" aria-label="Change avatar"></button><button class="icon-btn" id="pj-shuffle">🎲 Shuffle avatar</button></div>
       <input id="pj-pin" class="field" inputmode="numeric" maxlength="6" placeholder="Game PIN" autocomplete="off" style="text-align:center">
       <input id="pj-name" class="field" maxlength="16" placeholder="Nickname" autocomplete="off" style="text-align:center">
       <button class="btn accent big" id="pj-go">Join</button>
@@ -285,7 +298,7 @@ h1,h2,h3{font-family:var(--display);margin:0;letter-spacing:-.01em}
 
 <!-- PLAYER: GAME -->
 <section id="v-pgame" class="view hidden">
-  <div class="pl-bar"><span id="pg-name"></span><span id="pg-q" class="muted"></span><span class="score" id="pg-score">0</span></div>
+  <div class="pl-bar"><span class="who"><span class="av sm" id="pg-av"></span><span id="pg-name"></span></span><span id="pg-q" class="muted"></span><span class="score" id="pg-score">0</span></div>
   <div id="pg-body" class="view" style="flex:1"></div>
 </section>
 
@@ -321,6 +334,60 @@ function toast(msg){ const t = $("toast"); t.textContent = msg; t.classList.remo
 function shapeEl(i){ return `<span class="sh">${SHAPES[i]}</span>`; }
 function baseUrl(){ return location.href.split("#")[0].split("?")[0]; }
 document.querySelectorAll("[data-go=home]").forEach(b => b.onclick = () => show("v-home"));
+
+/* ---------- funny avatars (generated monsters) ---------- */
+// An avatar is [body, color, eyes, mouth, accessory] — five small numbers, cheap to send.
+const AV_BODY_COLORS = ["#ff6b6b","#4dabf7","#ffd43b","#51cf66","#cc5de8","#ff922b","#20c997","#f783ac","#94d82d","#748ffc"];
+const AV_COUNTS = [5, AV_BODY_COLORS.length, 6, 6, 8];
+const AV_INK = "#1d1640";
+function randomAvatar(){ return AV_COUNTS.map(n => Math.floor(Math.random() * n)); }
+function cleanAvatar(av){
+  if (!Array.isArray(av) || av.length !== 5) return randomAvatar();
+  return av.map((v, i) => { v = Math.floor(+v); return Number.isFinite(v) ? ((v % AV_COUNTS[i]) + AV_COUNTS[i]) % AV_COUNTS[i] : 0; });
+}
+function avatarSVG(av){
+  const [b, c, e, m, a] = cleanAvatar(av);
+  const col = AV_BODY_COLORS[c];
+  const shade = "rgba(0,0,0,.12)";
+  const bodies = [
+    `<circle cx="50" cy="60" r="33" fill="${col}"/><ellipse cx="50" cy="86" rx="20" ry="5" fill="${shade}"/>`,
+    `<rect x="17" y="28" width="66" height="64" rx="18" fill="${col}"/>`,
+    `<ellipse cx="50" cy="62" rx="29" ry="34" fill="${col}"/>`,
+    `<path d="M18 92V58a32 32 0 0 1 64 0v34l-8-7-8 7-8-7-8 7-8-7-8 7-8-7z" fill="${col}"/>`,
+    `<path d="M14 92Q14 28 50 28Q86 28 86 92Z" fill="${col}"/>`
+  ];
+  const eye = (x, y, r, px = 0, py = 0) => `<circle cx="${x}" cy="${y}" r="${r}" fill="#fff" stroke="${AV_INK}" stroke-width="2"/><circle cx="${x + px}" cy="${y + py}" r="${r * .45}" fill="${AV_INK}"/>`;
+  const eyes = [
+    eye(38, 52, 10, 3, 2) + eye(62, 52, 10, -2, 3),                       // googly
+    eye(50, 51, 15, 0, 2),                                                // cyclops
+    eye(32, 51, 7, 1, 1) + eye(50, 46, 8, 0, 2) + eye(68, 51, 7, -1, 1),  // three eyes
+    eye(38, 52, 9, 0, 2) + eye(62, 52, 9, 0, 2) +                         // sleepy (droopy lids)
+      `<path d="M28 52a10 10 0 0 1 20 0z M52 52a10 10 0 0 1 20 0z" fill="${col}" stroke="${AV_INK}" stroke-width="2"/>`,
+    eye(38, 52, 10, 4, 0) + eye(62, 52, 10, -4, 0),                       // cross-eyed
+    eye(38, 52, 10, 2, 1) + `<path d="M54 53q8-8 16 0" fill="none" stroke="${AV_INK}" stroke-width="3" stroke-linecap="round"/>` // wink
+  ];
+  const mouths = [
+    `<path d="M36 69q14 16 28 0z" fill="${AV_INK}"/>`,                                                  // grin
+    `<path d="M36 69q14 14 28 0z" fill="${AV_INK}"/><path d="M45 74q5 12 10 0z" fill="#ff8fab"/>`,      // tongue out
+    `<path d="M36 70h28" stroke="${AV_INK}" stroke-width="3" stroke-linecap="round"/><path d="M40 70l3 7 3-7zM54 70l3 7 3-7z" fill="#fff" stroke="${AV_INK}" stroke-width="1.5"/>`, // fangs
+    `<ellipse cx="50" cy="73" rx="6" ry="7" fill="${AV_INK}"/>`,                                        // "oh!"
+    `<path d="M36 72q4-5 7 0t7 0 7 0 7 0" fill="none" stroke="${AV_INK}" stroke-width="3" stroke-linecap="round"/>`, // wobbly
+    `<path d="M40 68q10 9 20 0" fill="none" stroke="${AV_INK}" stroke-width="3" stroke-linecap="round"/><rect x="45" y="70" width="5" height="7" rx="1" fill="#fff" stroke="${AV_INK}" stroke-width="1.5"/><rect x="50" y="70" width="5" height="7" rx="1" fill="#fff" stroke="${AV_INK}" stroke-width="1.5"/>` // buck teeth
+  ];
+  const accs = [
+    ``,
+    `<path d="M38 32 50 4l12 28z" fill="#ffd43b" stroke="${AV_INK}" stroke-width="2"/><path d="M42 24h16M45 16h10" stroke="#ff6b6b" stroke-width="3"/><circle cx="50" cy="5" r="4" fill="#ff6b6b"/>`, // party hat
+    `<rect x="25" y="44" width="22" height="14" rx="5" fill="${AV_INK}"/><rect x="53" y="44" width="22" height="14" rx="5" fill="${AV_INK}"/><path d="M47 49h6M25 48l-8-3M75 48l8-3" stroke="${AV_INK}" stroke-width="3"/><path d="M29 47l6 0" stroke="#fff" stroke-width="2" opacity=".6"/>`, // sunglasses
+    `<path d="M32 32l-3-18 11 9 10-14 10 14 11-9-3 18z" fill="#ffd43b" stroke="${AV_INK}" stroke-width="2" stroke-linejoin="round"/><circle cx="50" cy="25" r="3" fill="#ff6b6b"/>`, // crown
+    `<path d="M30 32a20 16 0 0 1 40 0z" fill="#4dabf7" stroke="${AV_INK}" stroke-width="2"/><path d="M50 16v-6" stroke="#ffd43b" stroke-width="3"/><path d="M38 9q12-6 24 0q-12 4-24 0z" fill="#ff6b6b" stroke="${AV_INK}" stroke-width="1.5"/>`, // propeller cap
+    `<path d="M50 63q-8-6-16 2q8 2 16-2q8 4 16 2q-8-8-16-2z" fill="${AV_INK}"/>`, // mustache
+    `<path d="M40 32 32 12M60 32l8-20" stroke="${col}" stroke-width="4" stroke-linecap="round"/><circle cx="32" cy="11" r="5" fill="#ffd43b" stroke="${AV_INK}" stroke-width="2"/><circle cx="68" cy="11" r="5" fill="#ffd43b" stroke="${AV_INK}" stroke-width="2"/>`, // antennae
+    `<path d="M62 30l-12-8v16zM62 30l12-8v16z" fill="#f783ac" stroke="${AV_INK}" stroke-width="2" stroke-linejoin="round"/><circle cx="62" cy="30" r="4" fill="#ff6b6b" stroke="${AV_INK}" stroke-width="2"/>` // bow
+  ];
+  const cheeks = m === 3 ? "" : `<circle cx="27" cy="66" r="5" fill="#ff8fab" opacity=".55"/><circle cx="73" cy="66" r="5" fill="#ff8fab" opacity=".55"/>`;
+  return `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">${bodies[b]}${cheeks}${eyes[e]}${mouths[m]}${accs[a]}</svg>`;
+}
+const avHTML = (av, cls = "") => `<span class="av ${cls}">${avatarSVG(av)}</span>`;
 
 /* ---------- quiz storage ---------- */
 const SAMPLE = {
@@ -535,8 +602,9 @@ function hostMsg(msg){
     const clash = [...H.players.values()].find(p => p.name.toLowerCase() === name.toLowerCase() && p.pid !== pid);
     if (clash) return hostSend(pid, { t: "error", msg: "That nickname is taken — try another." });
     let p = H.players.get(pid);
-    if (!p) { p = { pid, name, score: 0, streak: 0, correct: 0, history: [] }; H.players.set(pid, p); }
-    else p.name = name;
+    const av = cleanAvatar(msg.av);
+    if (!p) { p = { pid, name, av, score: 0, streak: 0, correct: 0, history: [] }; H.players.set(pid, p); }
+    else { p.name = name; p.av = av; }
     p.online = true;
     hostSend(pid, { t: "joined", name: p.name, score: p.score, title: H.quiz.title });
     syncPlayer(p);
@@ -573,7 +641,7 @@ function renderLobbyPlayers(){
   box.innerHTML = "";
   list.forEach(p => {
     const c = document.createElement("button");
-    c.className = "chip"; c.textContent = p.name; c.title = "Remove " + p.name;
+    c.className = "chip"; c.innerHTML = avHTML(p.av, "bob") + "<span></span>"; c.lastChild.textContent = p.name; c.title = "Remove " + p.name; c.firstChild.style.animationDelay = (-Math.random() * 1.6).toFixed(2) + "s";
     if (!p.online) c.style.opacity = .45;
     c.onclick = () => kick(p.pid);
     box.appendChild(c);
@@ -724,7 +792,7 @@ function rankList(){ return [...H.players.values()].sort((a, b) => b.score - a.s
 function showBoard(){
   H.phase = "board";
   const list = rankList().slice(0, 5);
-  $("sb-list").innerHTML = list.length ? list.map((p, i) => `<div class="sb-row" style="animation-delay:${i * 80}ms"><span class="rk">${i + 1}</span><span>${esc(p.name)}${p.streak >= 2 ? ` <span title="answer streak">🔥${p.streak}</span>` : ""}</span><span class="sc">${p.score}</span></div>`).join("") : `<p class="muted">No players yet.</p>`;
+  $("sb-list").innerHTML = list.length ? list.map((p, i) => `<div class="sb-row" style="animation-delay:${i * 80}ms"><span class="rk">${i + 1}</span>${avHTML(p.av)}<span>${esc(p.name)}${p.streak >= 2 ? ` <span title="answer streak">🔥${p.streak}</span>` : ""}</span><span class="sc">${p.score}</span></div>`).join("") : `<p class="muted">No players yet.</p>`;
   $("sb-next").textContent = "Next question ▶";
   show("v-sb");
 }
@@ -742,9 +810,9 @@ function showFinal(){
   const heights = [200, 150, 110];
   const medal = ["var(--accent)", "#d9dbe6", "#e3a46b"];
   $("podium").innerHTML = order.filter(i => r[i]).map(i => `
-    <div class="pod"><div class="nm">${esc(r[i].name)}</div><div class="pts">${r[i].score} pts</div>
+    <div class="pod">${avHTML(r[i].av, (i === 0 ? "xl" : "lg") + " bob")}<div class="nm">${esc(r[i].name)}</div><div class="pts">${r[i].score} pts</div>
     <div class="blk" style="height:${heights[i]}px;background:${medal[i]}">${i + 1}</div></div>`).join("");
-  $("final-rest").innerHTML = r.slice(3, 10).map((p, i) => `<div class="sb-row" style="font-size:16px;padding:10px 14px"><span class="rk">${i + 4}</span><span>${esc(p.name)}</span><span class="sc">${p.score}</span></div>`).join("");
+  $("final-rest").innerHTML = r.slice(3, 10).map((p, i) => `<div class="sb-row" style="font-size:16px;padding:10px 14px"><span class="rk">${i + 4}</span>${avHTML(p.av, "sm")}<span>${esc(p.name)}</span><span class="sc">${p.score}</span></div>`).join("");
   show("v-final");
 }
 $("final-csv").onclick = () => {
@@ -774,12 +842,16 @@ const myPid = (() => { let id = store.get("bp.pid", null); if (!id) { id = uid()
 function openJoin(pin){
   $("pj-pin").value = pin || "";
   $("pj-name").value = store.get("bp.name", "");
+  renderMyAvatar();
   $("pj-err").textContent = "";
   show("v-pjoin");
   (pin ? $("pj-name") : $("pj-pin")).focus();
 }
 $("home-join").onclick = () => openJoin($("home-pin").value.replace(/\D/g, ""));
 $("home-pin").onkeydown = e => { if (e.key === "Enter") $("home-join").click(); };
+let myAv = cleanAvatar(store.get("bp.avatar", null) || randomAvatar());
+function renderMyAvatar(){ $("pj-av").innerHTML = avatarSVG(myAv); store.set("bp.avatar", myAv); }
+$("pj-av").onclick = $("pj-shuffle").onclick = () => { myAv = randomAvatar(); renderMyAvatar(); navigator.vibrate?.(15); };
 $("pj-name").onkeydown = e => { if (e.key === "Enter") $("pj-go").click(); };
 $("pj-pin").onkeydown = e => { if (e.key === "Enter") $("pj-name").focus(); };
 
@@ -843,7 +915,7 @@ function playerConnect(pin, name){
     client.on("offline", () => { if (P && P.client === client && P.joined && !P.ended) banner("Reconnecting…"); });
   }
 }
-function sendJoin(){ pSend({ t: "join", pid: myPid, name: P.name }); }
+function sendJoin(){ pSend({ t: "join", pid: myPid, name: P.name, av: myAv }); }
 function pSend(msg){ if (P && P.client) P.client.publish(topic(P.pin, "up"), JSON.stringify(msg), { qos: 1 }); }
 function pClose(){ if (P && P.client) { const c = P.client; setTimeout(() => { try { c.end(); } catch {} }, 500); } }
 
@@ -861,9 +933,9 @@ function playerMsg(m){
       break;
     case "joined":
       P.joined = true; P.name = m.name; P.score = m.score; $("pj-err").textContent = ""; $("pj-go").disabled = false;
-      $("pg-name").textContent = m.name; $("pg-score").textContent = m.score; banner("");
+      $("pg-name").textContent = m.name; $("pg-av").innerHTML = avatarSVG(myAv); $("pg-score").textContent = m.score; banner("");
       show("v-pgame");
-      pBody(`<div class="result neutral"><div class="big">You're in!</div><p style="font-size:18px;margin:0">See your nickname on the screen?</p><div class="spinner"></div><p class="muted" style="margin:0">Waiting for the host to start ${esc(m.title || "")}</p></div>`);
+      pBody(`<div class="result neutral">${avHTML(myAv, "xl bob")}<div class="big">You're in!</div><p style="font-size:18px;margin:0">See your nickname on the screen?</p><div class="spinner"></div><p class="muted" style="margin:0">Waiting for the host to start ${esc(m.title || "")}</p></div>`);
       break;
     case "get-ready":
       banner(`${m.qi + 1} / ${m.total}`);
@@ -906,7 +978,7 @@ function playerMsg(m){
     case "final": {
       P.score = m.score; $("pg-score").textContent = m.score; banner("Final");
       const medal = ["🥇", "🥈", "🥉"][m.rank - 1] || "🎉";
-      pBody(`<div class="result neutral"><div style="font-size:72px">${medal}</div><div class="big">#${m.rank} of ${m.of}</div><div class="pts">${m.score} pts</div><p style="margin:0">${m.correct} of ${m.total} correct</p></div>`);
+      pBody(`<div class="result neutral">${avHTML(myAv, "lg bob")}<div style="font-size:56px;line-height:1">${medal}</div><div class="big">#${m.rank} of ${m.of}</div><div class="pts">${m.score} pts</div><p style="margin:0">${m.correct} of ${m.total} correct</p></div>`);
       break;
     }
     case "kicked":
