@@ -6,7 +6,7 @@
 <title>Brightpin — Live Quiz</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mqtt@5.10.4/dist/mqtt.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
 :root{
@@ -303,7 +303,10 @@ const SHAPES = [
   '<svg class="shape" viewBox="0 0 40 40"><path d="M20 5 36 33H4z"/></svg>',
   '<svg class="shape" viewBox="0 0 40 40"><path d="M20 3l5 11 12 1-9 8 3 12-11-6-11 6 3-12-9-8 12-1z"/></svg>'
 ];
-const PEER_PREFIX = "brightpin-live-";
+// Public MQTT relays (secure WebSockets). Host and players meet on the same one.
+const BROKERS = ["wss://broker.emqx.io:8084/mqtt", "wss://broker.hivemq.com:8884/mqtt", "wss://test.mosquitto.org:8081/mqtt"];
+const TOPIC_ROOT = "brightpin-live/v2/";
+const topic = (pin, sub) => TOPIC_ROOT + pin + "/" + sub;
 const INTRO_MS = 3000;
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -445,70 +448,105 @@ function prepQuiz(quiz){
 }
 
 function startHosting(quiz){
-  if (typeof Peer === "undefined") { $("ed-err").textContent = "Couldn't load the connection library. Check your internet connection and reload."; return; }
-  H = { quiz: prepQuiz(quiz), raw: quiz, players: new Map(), conns: new Map(), qi: -1, phase: "lobby", peer: null, pin: null, timer: null, answers: new Map(), qStart: 0, attempts: 0 };
+  if (typeof mqtt === "undefined") { $("ed-err").textContent = "Couldn't load the connection library. Check your internet connection and reload."; return; }
+  H = { quiz: prepQuiz(quiz), raw: quiz, players: new Map(), qi: -1, phase: "lobby", client: null, pin: null, timer: null, answers: new Map(), qStart: 0, attempts: 0, broker: 0, hostId: uid() };
   $("lobby-title").textContent = H.quiz.title;
   $("lobby-players").innerHTML = ""; $("lobby-count").textContent = "0"; $("lobby-start").disabled = true;
   $("file-warn").classList.toggle("hidden", location.protocol !== "file:");
   show("v-lobby");
-  openPeer();
+  openHostNet();
 }
 
-function openPeer(){
+function showJoinInfo(){
+  const pin = H.pin;
+  $("lobby-pin").textContent = pin; $("hq-pin").textContent = pin;
+  const url = baseUrl() + "?pin=" + pin + (H.broker ? "&b=" + H.broker : "");
+  $("join-url").textContent = baseUrl().replace(/^https?:\/\//, "").replace(/\/index\.html$/, "/").replace(/\/$/, "");
+  const qr = $("qr"); qr.innerHTML = "";
+  const size = Math.min(300, Math.max(180, Math.floor(window.innerWidth * 0.24)));
+  new QRCode(qr, { text: url, width: size, height: size, colorDark: "#16123a", colorLight: "#ffffff", correctLevel: QRCode.CorrectLevel.M });
+}
+
+function openHostNet(){
   const pin = String(Math.floor(100000 + Math.random() * 900000));
+  const brokerIdx = H.broker;
   $("lobby-status").textContent = "Connecting…";
   $("lobby-pin").textContent = "······";
-  const peer = new Peer(PEER_PREFIX + pin, { debug: 1 });
-  H.peer = peer;
-  peer.on("open", () => {
-    H.pin = pin;
-    $("lobby-pin").textContent = pin; $("hq-pin").textContent = pin;
-    const url = baseUrl() + "?pin=" + pin;
-    $("join-url").textContent = baseUrl().replace(/^https?:\/\//, "").replace(/\/index\.html$/, "/").replace(/\/$/, "");
-    const qr = $("qr"); qr.innerHTML = "";
-    const size = Math.min(300, Math.max(180, Math.floor(window.innerWidth * 0.24)));
-    new QRCode(qr, { text: url, width: size, height: size, colorDark: "#16123a", colorLight: "#ffffff", correctLevel: QRCode.CorrectLevel.M });
-    $("lobby-status").textContent = "Ready — players can join now.";
+  const client = mqtt.connect(BROKERS[brokerIdx], {
+    clean: true, keepalive: 20, connectTimeout: 8000, reconnectPeriod: 2000,
+    clientId: "bph_" + uid(),
+    will: { topic: topic(pin, "host"), payload: "", qos: 1, retain: true }
   });
-  peer.on("connection", conn => hostConn(conn));
-  peer.on("disconnected", () => { if (H && H.peer === peer && !peer.destroyed) { $("lobby-status").textContent = "Reconnecting…"; setTimeout(() => { try { peer.reconnect(); } catch {} }, 1000); } });
-  peer.on("error", err => {
-    if (!H || H.peer !== peer) return;
-    if (err.type === "unavailable-id" && H.attempts++ < 5) { peer.destroy(); openPeer(); return; }
-    if (err.type === "peer-unavailable") return;
-    $("lobby-status").textContent = "Connection problem: " + (err.type || err.message) + ". Retrying…";
-  });
-}
+  H.client = client;
+  let checked = false, ready = false;
+  const giveUp = setTimeout(() => {
+    if (!H || H.client !== client || ready) return;
+    try { client.end(true); } catch {}
+    if (H.broker < BROKERS.length - 1) { H.broker++; openHostNet(); }
+    else $("lobby-status").textContent = "Can't reach the game server. Check the internet connection and try again.";
+  }, 10000);
 
-function hostSend(pid, msg){ const c = H.conns.get(pid); if (c && c.open) { try { c.send(msg); } catch {} } }
-function hostBroadcast(fn){ for (const pid of H.players.keys()) { const m = fn(H.players.get(pid)); if (m) hostSend(pid, m); } }
-
-function hostConn(conn){
-  let pid = null;
-  conn.on("data", raw => {
-    if (!H) return;
-    const msg = raw && typeof raw === "object" ? raw : {};
-    if (msg.t === "join") {
-      const name = String(msg.name || "").trim().slice(0, 16);
-      pid = String(msg.pid || "").slice(0, 40);
-      if (!name || !pid) return conn.send({ t: "error", msg: "Please enter a nickname." });
-      if (H.kicked && H.kicked.has(pid)) return conn.send({ t: "error", msg: "You were removed from this game." });
-      const clash = [...H.players.values()].find(p => p.name.toLowerCase() === name.toLowerCase() && p.pid !== pid);
-      if (clash) return conn.send({ t: "error", msg: "That nickname is taken — try another." });
-      let p = H.players.get(pid);
-      if (!p) { p = { pid, name, score: 0, streak: 0, correct: 0, history: [] }; H.players.set(pid, p); }
-      else p.name = name;
-      const old = H.conns.get(pid); if (old && old !== conn) { try { old.close(); } catch {} }
-      H.conns.set(pid, conn);
-      p.online = true;
-      conn.send({ t: "joined", name: p.name, score: p.score, title: H.quiz.title });
-      syncPlayer(p);
-      renderLobbyPlayers();
-    } else if (msg.t === "answer" && pid) {
-      hostAnswer(pid, msg);
+  client.on("connect", () => {
+    if (!H || H.client !== client) return;
+    if (!checked) {
+      // make sure no other live game is using this PIN
+      client.subscribe(topic(pin, "host"), { qos: 1 });
+      setTimeout(() => {
+        if (!H || H.client !== client) return;
+        checked = true;
+        if (H.pinTaken) { H.pinTaken = false; client.end(true); clearTimeout(giveUp); if (H.attempts++ < 6) openHostNet(); return; }
+        claim();
+      }, 1200);
+    } else {
+      claim(); // reconnected: subscriptions are gone with a clean session
     }
   });
-  conn.on("close", () => { if (H && pid && H.conns.get(pid) === conn) { H.conns.delete(pid); const p = H.players.get(pid); if (p) p.online = false; renderLobbyPlayers(); } });
+  function claim(){
+    ready = true; clearTimeout(giveUp);
+    H.pin = pin;
+    client.subscribe(topic(pin, "up"), { qos: 1 });
+    client.publish(topic(pin, "host"), JSON.stringify({ id: H.hostId, title: H.quiz.title }), { qos: 1, retain: true });
+    showJoinInfo();
+    $("lobby-status").textContent = "Ready — players can join now.";
+  }
+  client.on("message", (t, buf) => {
+    if (!H || H.client !== client) return;
+    if (t === topic(pin, "host")) {
+      if (!checked && buf.length) { try { if (JSON.parse(buf.toString()).id !== H.hostId) H.pinTaken = true; } catch {} }
+      return;
+    }
+    let msg; try { msg = JSON.parse(buf.toString()); } catch { return; }
+    if (msg && typeof msg === "object") hostMsg(msg);
+  });
+  client.on("offline", () => { if (H && H.client === client && ready) $("lobby-status").textContent = "Connection lost — reconnecting…"; });
+  client.on("reconnect", () => { if (H && H.client === client && ready) $("lobby-status").textContent = "Reconnecting…"; });
+}
+
+function hostSend(pid, msg){ if (H && H.client && H.pin) H.client.publish(topic(H.pin, "down/" + pid), JSON.stringify(msg), { qos: 1 }); }
+function hostBroadcast(fn){ for (const pid of H.players.keys()) { const m = fn(H.players.get(pid)); if (m) hostSend(pid, m); } }
+
+function hostMsg(msg){
+  const pid = String(msg.pid || "").replace(/[^\w-]/g, "").slice(0, 40);
+  if (!pid) return;
+  if (msg.t === "join") {
+    const name = String(msg.name || "").trim().slice(0, 16);
+    if (!name) return hostSend(pid, { t: "error", msg: "Please enter a nickname." });
+    if (H.kicked && H.kicked.has(pid)) return hostSend(pid, { t: "error", msg: "You were removed from this game." });
+    const clash = [...H.players.values()].find(p => p.name.toLowerCase() === name.toLowerCase() && p.pid !== pid);
+    if (clash) return hostSend(pid, { t: "error", msg: "That nickname is taken — try another." });
+    let p = H.players.get(pid);
+    if (!p) { p = { pid, name, score: 0, streak: 0, correct: 0, history: [] }; H.players.set(pid, p); }
+    else p.name = name;
+    p.online = true;
+    hostSend(pid, { t: "joined", name: p.name, score: p.score, title: H.quiz.title });
+    syncPlayer(p);
+    renderLobbyPlayers();
+  } else if (msg.t === "answer") {
+    hostAnswer(pid, msg);
+  } else if (msg.t === "leave") {
+    const p = H.players.get(pid);
+    if (p) { p.online = false; renderLobbyPlayers(); }
+  }
 }
 
 function syncPlayer(p){
@@ -548,7 +586,6 @@ function kick(pid){
   if (!confirm(`Remove ${p.name} from the game?`)) return;
   (H.kicked ||= new Set()).add(pid);
   hostSend(pid, { t: "kicked" });
-  setTimeout(() => { try { H.conns.get(pid)?.close(); } catch {} H.conns.delete(pid); }, 300);
   H.players.delete(pid); H.answers.delete(pid);
   renderLobbyPlayers();
 }
@@ -561,8 +598,9 @@ function endHosting(){
   if (!H) return;
   hostBroadcast(() => ({ t: "ended" }));
   clearInterval(H.timer);
-  const peer = H.peer; H = null;
-  setTimeout(() => { try { peer.destroy(); } catch {} }, 400);
+  const c = H.client, pin = H.pin; H = null;
+  if (c && pin) c.publish(topic(pin, "host"), "", { qos: 1, retain: true });
+  setTimeout(() => { try { c && c.end(); } catch {} }, 600);
   renderEditor(); show("v-editor");
 }
 
@@ -750,7 +788,7 @@ $("pj-go").onclick = () => {
   const name = $("pj-name").value.trim();
   if (pin.length !== 6) return $("pj-err").textContent = "The PIN has 6 digits.";
   if (!name) return $("pj-err").textContent = "Pick a nickname.";
-  if (typeof Peer === "undefined") return $("pj-err").textContent = "Couldn't load — check your internet and reload.";
+  if (typeof mqtt === "undefined") return $("pj-err").textContent = "Couldn't load — check your internet and reload.";
   store.set("bp.name", name);
   $("pj-err").textContent = "Connecting…";
   $("pj-go").disabled = true;
@@ -758,38 +796,56 @@ $("pj-go").onclick = () => {
 };
 
 function playerConnect(pin, name){
-  if (P && P.peer) { try { P.peer.destroy(); } catch {} }
-  P = { pin, name, score: 0, peer: null, conn: null, joined: false, q: null, tbar: null, retries: 0 };
-  const peer = new Peer({ debug: 1 });
-  P.peer = peer;
-  const failT = setTimeout(() => { if (P && !P.joined) { $("pj-err").textContent = "Couldn't reach that game. Check the PIN and try again."; $("pj-go").disabled = false; try { peer.destroy(); } catch {} } }, 15000);
-  peer.on("open", () => dial());
-  peer.on("error", err => {
-    if (err.type === "peer-unavailable") {
-      if (P && P.joined) { scheduleRedial(); return; }
-      clearTimeout(failT);
-      $("pj-err").textContent = "No game found with that PIN.";
-      $("pj-go").disabled = false;
-    } else if (!P || !P.joined) {
-      $("pj-err").textContent = "Connection problem (" + err.type + "). Try again.";
-      $("pj-go").disabled = false; clearTimeout(failT);
-    }
-  });
-  peer.on("disconnected", () => { if (!peer.destroyed) setTimeout(() => { try { peer.reconnect(); } catch {} }, 1000); });
+  if (P && P.client) { try { P.client.end(true); } catch {} }
+  const urlB = +(new URLSearchParams(location.search).get("b") || NaN);
+  const order = Number.isInteger(urlB) && BROKERS[urlB] ? [urlB] : BROKERS.map((_, i) => i);
+  P = { pin, name, score: 0, client: null, joined: false, q: null, ended: false };
+  tryBroker(0);
 
-  function dial(){
-    const conn = peer.connect(PEER_PREFIX + pin, { reliable: true });
-    P.conn = conn;
-    conn.on("open", () => { P.retries = 0; conn.send({ t: "join", pid: myPid, name: P.name }); });
-    conn.on("data", m => { if (m && m.t === "joined") clearTimeout(failT); playerMsg(m); });
-    conn.on("close", () => { if (P && P.conn === conn && !P.ended) { banner("Reconnecting…"); scheduleRedial(); } });
+  function fail(text){
+    if (!P || P.joined) return;
+    $("pj-err").textContent = text; $("pj-go").disabled = false;
+    try { P.client.end(true); } catch {}
   }
-  function scheduleRedial(){
-    if (!P || P.ended || P.redialT) return;
-    if (P.retries++ > 20) { pBody(`<div class="result neutral"><div class="big">Disconnected</div><p>The host's game isn't reachable anymore.</p><button class="btn" onclick="location.reload()">Rejoin</button></div>`); return; }
-    P.redialT = setTimeout(() => { P.redialT = null; if (!peer.destroyed) dial(); }, 1500);
+  function tryBroker(k){
+    const b = order[k];
+    const client = mqtt.connect(BROKERS[b], {
+      clean: true, keepalive: 20, connectTimeout: 8000, reconnectPeriod: 2000,
+      clientId: "bpp_" + uid(),
+      will: { topic: topic(pin, "up"), payload: JSON.stringify({ t: "leave", pid: myPid }), qos: 1, retain: false }
+    });
+    P.client = client;
+    let hostSeen = false, firstConnect = true;
+    const next = text => { try { client.end(true); } catch {} if (k < order.length - 1) tryBroker(k + 1); else fail(text); };
+    const connT = setTimeout(() => { if (P && P.client === client && !hostSeen) next(firstConnect ? "Can't reach the game server. Check your internet connection." : "No game found with that PIN."); }, 9000);
+
+    client.on("connect", () => {
+      if (!P || P.client !== client) return;
+      client.subscribe([topic(pin, "down/" + myPid), topic(pin, "host")], { qos: 1 });
+      if (firstConnect) {
+        firstConnect = false;
+        // the host keeps a retained "I'm here" message; give it a few seconds to arrive
+        setTimeout(() => { if (P && P.client === client && !hostSeen) { clearTimeout(connT); next("No game found with that PIN. Check the number on the big screen."); } }, 4000);
+      }
+    });
+    client.on("message", (t, buf) => {
+      if (!P || P.client !== client) return;
+      if (t === topic(pin, "host")) {
+        if (!buf.length) { if (P.joined && !P.ended) banner("Host offline…"); return; }
+        const first = !hostSeen; hostSeen = true; clearTimeout(connT);
+        if (first || P.joined) sendJoin();
+        if (first) setTimeout(() => { if (P && P.client === client && !P.joined && !P.ended) fail("The game didn't answer. Try again."); }, 8000);
+        return;
+      }
+      let m; try { m = JSON.parse(buf.toString()); } catch { return; }
+      playerMsg(m);
+    });
+    client.on("offline", () => { if (P && P.client === client && P.joined && !P.ended) banner("Reconnecting…"); });
   }
 }
+function sendJoin(){ pSend({ t: "join", pid: myPid, name: P.name }); }
+function pSend(msg){ if (P && P.client) P.client.publish(topic(P.pin, "up"), JSON.stringify(msg), { qos: 1 }); }
+function pClose(){ if (P && P.client) { const c = P.client; setTimeout(() => { try { c.end(); } catch {} }, 500); } }
 
 function pBody(html){ $("pg-body").innerHTML = html; }
 function banner(text){ $("pg-q").textContent = text; }
@@ -801,10 +857,10 @@ function playerMsg(m){
     case "error":
       $("pj-err").textContent = m.msg; $("pj-go").disabled = false;
       if (P.joined) { show("v-pjoin"); }
-      P.ended = true; try { P.peer.destroy(); } catch {}
+      P.ended = true; pClose();
       break;
     case "joined":
-      P.joined = true; P.name = m.name; P.score = m.score;
+      P.joined = true; P.name = m.name; P.score = m.score; $("pj-err").textContent = ""; $("pj-go").disabled = false;
       $("pg-name").textContent = m.name; $("pg-score").textContent = m.score; banner("");
       show("v-pgame");
       pBody(`<div class="result neutral"><div class="big">You're in!</div><p style="font-size:18px;margin:0">See your nickname on the screen?</p><div class="spinner"></div><p class="muted" style="margin:0">Waiting for the host to start ${esc(m.title || "")}</p></div>`);
@@ -824,7 +880,7 @@ function playerMsg(m){
       loop();
       document.querySelectorAll(".pl-btn").forEach(b => b.onclick = () => {
         navigator.vibrate?.(30);
-        try { P.conn.send({ t: "answer", qi: m.qi, choice: +b.dataset.s }); } catch {}
+        pSend({ t: "answer", pid: myPid, qi: m.qi, choice: +b.dataset.s });
         const s = +b.dataset.s;
         pBody(`<div class="result" style="background:${COLORS[s]}"><span class="sh" style="width:80px;height:80px">${SHAPES[s]}</span><div class="big">Answer sent</div><p style="margin:0">Waiting for everyone else…</p></div>`);
       });
@@ -857,13 +913,13 @@ function playerMsg(m){
       P.ended = true; show("v-pgame");
       pBody(`<div class="result neutral"><div class="big">Removed</div><p>The host removed you from this game.</p><button class="btn" id="pk-back">OK</button></div>`);
       $("pk-back").onclick = () => show("v-home");
-      try { P.peer.destroy(); } catch {}
+      pClose();
       break;
     case "ended":
       P.ended = true;
       pBody(`<div class="result neutral"><div class="big">Game over</div><p>The host ended the game. Thanks for playing!</p><button class="btn" id="pe-back">Done</button></div>`);
       $("pe-back").onclick = () => show("v-home");
-      setTimeout(() => { try { P.peer.destroy(); } catch {} }, 500);
+      pClose();
       break;
   }
 }

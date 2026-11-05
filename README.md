@@ -32,4 +32,5 @@ Phones need a real web address to scan, so the file has to be hosted. Either opt
 - **Your quizzes are saved in this browser.** Use **Export** to back them up or move them to another computer, and **Import** to load them.
 - Tap a player's name in the lobby to remove them.
 - Opening the file directly from your computer (`file://`) works for trying out the editor, but phones can't use the QR code until the file is hosted.
-- Connections go through the free PeerJS service, and the internet is required. On very strict networks (some corporate or school Wi-Fi), a phone may fail to connect. Switching that phone to mobile data usually fixes it.
+- Phones and the host connect through a free public message relay over a normal secure web connection, so it works on Wi-Fi, mobile data, and hotspots. An internet connection is required.
+- The relay is public, so don't put private or sensitive information in quiz questions.
