@@ -1,6 +1,6 @@
-# Brightpin — how to put it online
+# Akyl — how to put it online
 
-Brightpin is a single file (`index.html`). There's no server and no accounts. The host's browser runs the game, and players' phones connect to it directly.
+Akyl is a single file (`index.html`). There's no server and no accounts. The host's browser runs the game, and players' phones connect to it directly.
 
 ## 1. Put it on the web (free, about 2 minutes)
 
