@@ -1150,7 +1150,10 @@ function save(){ clearTimeout(saveT); $("ed-saved").textContent = "Saving…"; s
 /* ---------- editor ---------- */
 function renderEditor(){
   const sel = $("ed-select");
-  sel.innerHTML = quizzes.map(q => `<option value="${q.id}" ${q.id===curId?"selected":""}>${esc(q.title || "Untitled quiz")}</option>`).join("");
+  const opt = q => `<option value="${q.id}" ${q.id===curId?"selected":""}>${esc(q.title || "Untitled quiz")}</option>`;
+  const daily = quizzes.filter(q => q.date).sort((a, b) => b.date.localeCompare(a.date));
+  const other = quizzes.filter(q => !q.date);
+  sel.innerHTML = (daily.length ? `<optgroup label="📅 Daily sets">${daily.map(opt).join("")}</optgroup><optgroup label="Other quizzes">` : "<optgroup label=\"Quizzes\">") + other.map(opt).join("") + "</optgroup>";
   const quiz = curQuiz();
   $("ed-title").value = quiz.title;
   const box = $("ed-questions");
@@ -1739,6 +1742,34 @@ function playerMsg(m){
 /* ---------- boot ---------- */
 document.documentElement.style.setProperty("--shyrdak", shyrdakStrip());
 document.querySelectorAll("[data-tunduk]").forEach(el => el.innerHTML = tundukSVG());
+/* ---------- daily question sets (sets/index.json, newest first) ---------- */
+async function loadDailySets(){
+  if (location.protocol === "file:") return;
+  try {
+    const idx = await (await fetch("sets/index.json", { cache: "no-cache" })).json();
+    const seeded = store.get("bp.seeded", []);
+    const fresh = (idx.sets || []).filter(s => s && s.id && !seeded.includes(s.id) && !quizzes.some(q => q.id === s.id));
+    let newest = null;
+    for (const s of fresh) {
+      try {
+        const q = await (await fetch(s.file, { cache: "no-cache" })).json();
+        if (!q || !Array.isArray(q.questions)) continue;
+        quizzes.push({ id: s.id, title: String(q.title || s.title), date: String(q.date || s.date),
+          questions: q.questions.map(x => ({ text: String(x.text || ""), answers: [0,1,2,3].map(i => String((x.answers || [])[i] || "")), correct: +x.correct || 0, time: +x.time || 20 })) });
+        seeded.push(s.id);
+        if (!newest || s.date > newest.date) newest = s;
+      } catch {}
+    }
+    (idx.sets || []).forEach(s => { if (quizzes.some(q => q.id === s.id) && !seeded.includes(s.id)) seeded.push(s.id); });
+    store.set("bp.seeded", seeded);
+    if (newest) {
+      curId = newest.id; store.set("bp.quizzes", quizzes); store.set("bp.current", curId);
+      if (!$("v-editor").classList.contains("hidden")) renderEditor();
+      toast(`New question set: ${newest.title}`);
+    }
+  } catch {}
+}
+loadDailySets();
 const urlPin = new URLSearchParams(location.search).get("pin");
 if (urlPin && /^\d{6}$/.test(urlPin)) openJoin(urlPin);
 else show("v-home");

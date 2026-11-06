@@ -34,3 +34,10 @@ Phones need a real web address to scan, so the file has to be hosted. Either opt
 - Opening the file directly from your computer (`file://`) works for trying out the editor, but phones can't use the QR code until the file is hosted.
 - Phones and the host connect through a free public message relay over a normal secure web connection, so it works on Wi-Fi, mobile data, and hotspots. An internet connection is required.
 - The relay is public, so don't put private or sensitive information in quiz questions.
+
+## Daily question sets
+
+Every day gets a new set of 45 questions (23 logic, 9 general, 9 math, 4 science; 23 in Kyrgyz and 22 in Russian), named by its date, for example "November 6".
+
+- The site loads new sets automatically. They appear at the top of the quiz editor's dropdown under **📅 Daily sets**, newest first, and the newest one is selected.
+- To add a set, write `tools/sources/YYYY-MM-DD.json` (see `tools/sources/2026-11-06.json` for the format), then run `python3 tools/make_set.py tools/sources/YYYY-MM-DD.json`. The script checks the mix and that no question repeats an earlier set, shuffles the order and the answer positions, and writes `sets/YYYY-MM-DD.json` and `sets/index.json`. Push to `main` and the site updates.
