@@ -6,7 +6,8 @@ Usage:  python3 tools/make_set.py tools/sources/2026-11-06.json
 A source file is JSON:
   {"date": "2026-11-06", "title": "November 6",
    "questions": [[category, lang, seconds, text, correct, [wrong, wrong, wrong]], ...]}
-category: logic | general | math | science      lang: ky | ru
+category: logic | geography | general | math | science      lang: ky | ru
+Optional "mix" and "langs" objects override the default counts for that day.
 
 The script checks the mix (23 logic, 9 general, 9 math, 4 science; 23 ky, 22 ru),
 answer lengths and duplicates against earlier sets, mixes the order so a language
@@ -23,11 +24,14 @@ LANGS = {"ky": 23, "ru": 22}
 def main(src_path):
     src = json.loads(pathlib.Path(src_path).read_text(encoding="utf-8"))
     date, title, Q = src["date"], src["title"], src["questions"]
+    mix, langs = src.get("mix", MIX), src.get("langs", LANGS)
+    total = sum(mix.values())
     errors = []
     cat, lang = Counter(q[0] for q in Q), Counter(q[1] for q in Q)
-    if len(Q) != 45: errors.append(f"need 45 questions, got {len(Q)}")
-    if dict(cat) != MIX: errors.append(f"category mix {dict(cat)} != {MIX}")
-    if dict(lang) != LANGS: errors.append(f"language mix {dict(lang)} != {LANGS}")
+    if sum(langs.values()) != total: errors.append("mix and langs totals differ")
+    if len(Q) != total: errors.append(f"need {total} questions, got {len(Q)}")
+    if dict(cat) != mix: errors.append(f"category mix {dict(cat)} != {mix}")
+    if dict(lang) != langs: errors.append(f"language mix {dict(lang)} != {langs}")
     # duplicates against earlier sets
     seen = set()
     for f in sorted((ROOT / "sets").glob("*.json")):
@@ -39,7 +43,7 @@ def main(src_path):
         if len(answers) != 4 or len(set(answers)) != 4: errors.append(f"needs 4 different answers: {text}")
         if any(len(a) > 80 for a in answers): errors.append(f"answer over 80 chars: {text}")
         if text.strip().lower() in seen: errors.append(f"repeats an earlier set: {text}")
-        if c not in MIX or l not in LANGS: errors.append(f"bad category/lang: {text}")
+        if c not in mix or l not in langs: errors.append(f"bad category/lang: {text}")
     if errors:
         sys.exit("Not built:\n- " + "\n- ".join(errors))
 
@@ -64,7 +68,7 @@ def main(src_path):
     idx["sets"].sort(key=lambda s: s["date"], reverse=True)
     idx_path.write_text(json.dumps(idx, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
     pos = Counter(q["correct"] for q in out)
-    print(f"Built {title} ({date}): 45 questions, correct-answer positions {dict(sorted(pos.items()))}")
+    print(f"Built {title} ({date}): {len(out)} questions, mix {dict(cat)}, correct-answer positions {dict(sorted(pos.items()))}")
 
 if __name__ == "__main__":
     main(sys.argv[1])
