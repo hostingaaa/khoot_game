@@ -154,6 +154,17 @@ h1,h2,h3{font-family:var(--display);margin:0;letter-spacing:-.01em}
 .pl-btn .sh{width:56px;height:56px}
 .pl-btn span{text-shadow:0 1px 2px rgba(0,0,0,.3);word-break:break-word}
 .pl-timebar{height:6px;background:rgba(255,255,255,.15)}
+.pl-q{flex:1;display:flex;flex-direction:column;width:100%;max-width:1100px;margin:0 auto}
+.pl-qtext{background:var(--paper);color:var(--ink);margin:10px 10px 0;border-radius:14px;padding:12px 16px;font-family:var(--display);font-weight:700;font-size:clamp(17px,2.6vw,32px);line-height:1.2;text-align:center;overflow-wrap:anywhere}
+.pl-key{display:none;position:absolute;top:10px;left:12px;background:rgba(0,0,0,.25);border-radius:6px;padding:1px 8px;font-size:13px;font-weight:800}
+.pl-btn{position:relative}
+@media (min-width:700px){
+  .pl-qtext{margin:18px 18px 0;padding:22px 26px}
+  .pl-grid{padding:18px;gap:14px}
+  .pl-btn{flex-direction:row;justify-content:flex-start;gap:16px;font-size:clamp(18px,2vw,26px);padding:18px 24px;text-align:left}
+  .pl-key{display:block}
+}
+@media (hover:none){.pl-key{display:none!important}}
 .pl-timebar i{display:block;height:100%;background:var(--accent);width:100%}
 .result{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center;padding:24px}
 .result.good{background:var(--good)} .result.bad{background:var(--bad)} .result.neutral{background:var(--ink-3)}
@@ -1689,7 +1700,8 @@ function playerMsg(m){
       P.q = m;
       const n = m.answers.length;
       pBody(`<div class="pl-timebar"><i id="pl-tb"></i></div>
-        <div class="pl-grid ${n === 2 ? "n2" : ""}">${m.answers.map((a, i) => `<button class="pl-btn" data-s="${m.slots[i]}" style="background:${COLORS[m.slots[i]]}" aria-label="${esc(SHAPE_NAMES[m.slots[i]])}: ${esc(a)}">${shapeEl(m.slots[i])}<span>${esc(a)}</span></button>`).join("")}</div>`);
+        <div class="pl-q"><div class="pl-qtext">${esc(m.text)}</div>
+        <div class="pl-grid ${n === 2 ? "n2" : ""}">${m.answers.map((a, i) => `<button class="pl-btn" data-s="${m.slots[i]}" style="background:${COLORS[m.slots[i]]}" aria-label="${esc(SHAPE_NAMES[m.slots[i]])}: ${esc(a)}"><span class="pl-key">${i + 1}</span>${shapeEl(m.slots[i])}<span>${esc(a)}</span></button>`).join("")}</div></div>`);
       const end = performance.now() + m.remaining, tb = $("pl-tb");
       const loop = () => { const left = end - performance.now(); if (tb) tb.style.width = Math.max(0, left / (m.time * 1000) * 100) + "%"; if (left > 0) P.raf = requestAnimationFrame(loop); };
       loop();
@@ -1738,6 +1750,14 @@ function playerMsg(m){
       break;
   }
 }
+
+// laptops: press 1–4 to answer
+document.addEventListener("keydown", e => {
+  if (e.ctrlKey || e.metaKey || e.altKey || /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || "")) return;
+  if ($("v-pgame").classList.contains("hidden")) return;
+  const btns = document.querySelectorAll("#pg-body .pl-btn"), k = +e.key;
+  if (k >= 1 && k <= btns.length) { e.preventDefault(); btns[k - 1].click(); }
+});
 
 /* ---------- boot ---------- */
 document.documentElement.style.setProperty("--shyrdak", shyrdakStrip());
