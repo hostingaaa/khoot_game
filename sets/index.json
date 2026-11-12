@@ -1,6 +1,12 @@
 {
  "sets": [
   {
+   "id": "daily-2026-11-12",
+   "title": "November 12",
+   "date": "2026-11-12",
+   "file": "sets/2026-11-12.json"
+  },
+  {
    "id": "daily-2026-11-08",
    "title": "November 8",
    "date": "2026-11-08",
