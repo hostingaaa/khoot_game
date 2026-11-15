@@ -153,6 +153,12 @@ h1,h2,h3{font-family:var(--display);margin:0;letter-spacing:-.01em}
 .pl-btn:active{transform:translateY(4px);box-shadow:0 2px 0 rgba(0,0,0,.28)}
 .pl-btn .sh{width:56px;height:56px}
 .pl-btn span{text-shadow:0 1px 2px rgba(0,0,0,.3);word-break:break-word}
+.set-card{display:flex;flex-direction:column;align-items:center;text-align:center;gap:14px;padding:36px 20px;margin-bottom:16px}
+.set-card .tunduk{width:64px;height:64px}
+.set-card h2{font-size:clamp(34px,6vw,56px)}
+.set-card .facts{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+.set-card .facts span{background:rgba(255,255,255,.1);border:1px solid var(--line);border-radius:999px;padding:6px 14px;font-weight:600;font-size:14px}
+.set-card .lock{color:var(--muted);font-size:14px}
 .pl-timebar{height:6px;background:rgba(255,255,255,.15)}
 .pl-q{flex:1;display:flex;flex-direction:column;width:100%;max-width:1100px;margin:0 auto}
 .pl-qtext{background:var(--paper);color:var(--ink);margin:10px 10px 0;border-radius:14px;padding:12px 16px;font-family:var(--display);font-weight:700;font-size:clamp(17px,2.6vw,32px);line-height:1.2;text-align:center;overflow-wrap:anywhere}
@@ -216,11 +222,12 @@ h1,h2,h3{font-family:var(--display);margin:0;letter-spacing:-.01em}
       <button class="btn ghost" id="ed-export">Export</button>
       <button class="btn danger" id="ed-delete">Delete</button>
     </div>
-    <div class="card" style="margin-bottom:16px">
+    <div class="card" style="margin-bottom:16px" id="ed-titlecard">
       <input id="ed-title" class="field" placeholder="Quiz title">
     </div>
+    <div id="ed-summary" class="card set-card hidden"></div>
     <div id="ed-questions"></div>
-    <div class="row" style="margin-top:8px">
+    <div class="row" style="margin-top:8px" id="ed-bottom">
       <button class="btn ghost" id="ed-add">+ Add question</button>
       <div class="spacer"></div>
       <span class="muted small" id="ed-saved">Saved on this device</span>
@@ -1169,6 +1176,13 @@ function renderEditor(){
   $("ed-title").value = quiz.title;
   const box = $("ed-questions");
   box.innerHTML = "";
+  // daily sets: show only a summary so the host doesn't see questions or answers
+  const hideQs = !!quiz.date && !revealed.has(quiz.id);
+  $("ed-titlecard").classList.toggle("hidden", hideQs);
+  $("ed-bottom").classList.toggle("hidden", hideQs);
+  $("ed-summary").classList.toggle("hidden", !hideQs);
+  $("ed-host").textContent = quiz.date ? "Start ▶" : "Host this quiz ▶";
+  if (hideQs) { renderSetSummary(quiz); $("ed-err").textContent = ""; return; }
   quiz.questions.forEach((q, qi) => {
     const card = document.createElement("div");
     card.className = "card q-card";
@@ -1206,6 +1220,27 @@ function renderEditor(){
     box.appendChild(card);
   });
   $("ed-err").textContent = "";
+}
+const revealed = new Set();
+const CAT_NAMES = { logic: "Logic", geography: "Geography", general: "General", math: "Math", science: "Science" };
+function renderSetSummary(quiz){
+  const n = quiz.questions.length;
+  const cats = {}, langs = {};
+  quiz.questions.forEach(q => { if (q.cat) cats[q.cat] = (cats[q.cat] || 0) + 1; if (q.lang) langs[q.lang] = (langs[q.lang] || 0) + 1; });
+  const mins = Math.round(quiz.questions.reduce((t, q) => t + (q.time || 20) + 12, 0) / 60);
+  const facts = [`${n} questions`, ...Object.keys(CAT_NAMES).filter(c => cats[c]).map(c => `${cats[c]} ${CAT_NAMES[c].toLowerCase()}`)];
+  if (langs.ky || langs.ru) facts.push(`${langs.ky || 0} Kyrgyz · ${langs.ru || 0} Russian`);
+  facts.push(`about ${mins} min`);
+  const box = $("ed-summary");
+  box.innerHTML = `<span class="tunduk" data-tunduk></span><div class="muted" style="font-weight:700;letter-spacing:.08em;text-transform:uppercase;font-size:13px">📅 Daily set</div>
+    <h2></h2><div class="facts">${facts.map(f => `<span>${esc(f)}</span>`).join("")}</div>
+    <div class="lock">🔒 Questions and answers stay hidden until you start the game.</div>
+    <button class="btn accent big" id="sum-start">Start ▶</button>
+    <button class="icon-btn" id="sum-reveal">Show questions to edit (spoilers)</button>`;
+  box.querySelector("h2").textContent = quiz.title;
+  box.querySelector("[data-tunduk]").innerHTML = tundukSVG();
+  $("sum-start").onclick = () => $("ed-host").click();
+  $("sum-reveal").onclick = () => { if (confirm("Show all questions and correct answers?")) { revealed.add(quiz.id); renderEditor(); } };
 }
 $("ed-select").onchange = e => { curId = e.target.value; save(); renderEditor(); };
 $("ed-title").oninput = e => { curQuiz().title = e.target.value; save(); const o = $("ed-select").selectedOptions[0]; if (o) o.textContent = e.target.value || "Untitled quiz"; };
@@ -1775,12 +1810,23 @@ async function loadDailySets(){
         const q = await (await fetch(s.file, { cache: "no-cache" })).json();
         if (!q || !Array.isArray(q.questions)) continue;
         quizzes.push({ id: s.id, title: String(q.title || s.title), date: String(q.date || s.date),
-          questions: q.questions.map(x => ({ text: String(x.text || ""), answers: [0,1,2,3].map(i => String((x.answers || [])[i] || "")), correct: +x.correct || 0, time: +x.time || 20 })) });
+          questions: q.questions.map(x => ({ text: String(x.text || ""), answers: [0,1,2,3].map(i => String((x.answers || [])[i] || "")), correct: +x.correct || 0, time: +x.time || 20, cat: String(x.cat || ""), lang: String(x.lang || "") })) });
         seeded.push(s.id);
         if (!newest || s.date > newest.date) newest = s;
       } catch {}
     }
     (idx.sets || []).forEach(s => { if (quizzes.some(q => q.id === s.id) && !seeded.includes(s.id)) seeded.push(s.id); });
+    for (const s of idx.sets || []) {
+      const have = quizzes.find(q => q.id === s.id);
+      if (!have || have.questions.every(q => q.cat)) continue;
+      try {
+        const src = await (await fetch(s.file, { cache: "no-cache" })).json();
+        const byText = new Map((src.questions || []).map(x => [x.text, x]));
+        have.questions.forEach(q => { const x = byText.get(q.text); if (x) { q.cat = x.cat || ""; q.lang = x.lang || ""; } });
+        store.set("bp.quizzes", quizzes);
+        if (have.id === curId && !$("v-editor").classList.contains("hidden")) renderEditor();
+      } catch {}
+    }
     store.set("bp.seeded", seeded);
     if (newest) {
       curId = newest.id; store.set("bp.quizzes", quizzes); store.set("bp.current", curId);
